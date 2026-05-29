@@ -1,0 +1,26 @@
+@extends('layouts.app')
+
+@section('content')
+<div class="login-page">
+    <form method="POST" action="{{ route('login.store') }}" class="login-card">
+        @csrf
+        <h1>IMPACTO URBANIZACIONES</h1>
+        <p class="muted">Ingreso administrativo</p>
+        @if ($errors->any())
+            <div class="errors">{{ $errors->first() }}</div>
+        @endif
+        <div class="field">
+            <label>Email</label>
+            <input name="email" type="email" value="{{ old('email', 'admin@impacto.test') }}" required autofocus>
+        </div>
+        <div class="field" style="margin-top: 14px;">
+            <label>Contrasena</label>
+            <input name="password" type="password" value="password" required>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin:14px 0;">
+            <input type="checkbox" name="remember" value="1" style="width:auto;"> Recordarme
+        </label>
+        <button class="btn" type="submit" style="width:100%;">Ingresar</button>
+    </form>
+</div>
+@endsection
