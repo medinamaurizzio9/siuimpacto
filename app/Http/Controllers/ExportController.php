@@ -8,19 +8,20 @@ use App\Models\Cuota;
 use App\Models\Lote;
 use App\Models\Reserva;
 use App\Models\Venta;
+use App\Services\ReservationVisibilityService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\Response;
 
 class ExportController extends Controller
 {
-    public function __invoke(string $tipo): Response
+    public function __invoke(string $tipo, ReservationVisibilityService $visibility): Response
     {
         $map = [
             'lotes' => [UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion'))->get(), ['urbanizacion', 'manzano', 'lote', 'estado', 'superficie', 'precio']],
-            'clientes' => [Cliente::all(), ['nombre', 'documento', 'telefono', 'email']],
+            'clientes' => [UrbanizacionContext::clientes(Cliente::query())->get(), ['nombre', 'documento', 'telefono', 'email']],
             'ventas' => [UrbanizacionContext::ventas(Venta::with('cliente', 'lote.manzano'))->get(), ['fecha', 'cliente', 'lote', 'precio_final', 'estado']],
             'cuotas' => [UrbanizacionContext::cuotas(Cuota::with('venta.cliente'))->get(), ['cliente', 'numero', 'monto', 'pagado', 'saldo', 'estado']],
-            'reservas' => [UrbanizacionContext::reservas(Reserva::with('cliente', 'lote'))->get(), ['cliente', 'lote', 'vence', 'monto', 'estado']],
+            'reservas' => [$visibility->apply(UrbanizacionContext::reservas(Reserva::with('cliente', 'lote'), UrbanizacionContext::currentId()), request()->user())->get(), ['cliente', 'lote', 'tipo_operacion', 'vence', 'monto', 'estado']],
             'caja' => [UrbanizacionContext::cashMovements(CashMovement::with('cliente'))->get(), ['fecha', 'cliente', 'tipo', 'concepto', 'monto', 'estado']],
         ];
 
@@ -45,7 +46,7 @@ class ExportController extends Controller
             'clientes' => [$row->nombre, $row->documento, $row->telefono, $row->email],
             'ventas' => [$row->fecha_venta?->format('Y-m-d'), $row->cliente->nombre, $row->lote->manzano->codigo.'-'.$row->lote->codigo, $row->precio_final, $row->estado],
             'cuotas' => [$row->venta->cliente->nombre, $row->numero, $row->monto, $row->monto_pagado, $row->saldo_pendiente, $row->estado],
-            'reservas' => [$row->cliente->nombre, $row->lote->codigo, $row->fecha_vencimiento?->format('Y-m-d'), $row->monto_reserva, $row->estado],
+            'reservas' => [$row->cliente->nombre, $row->lote->codigo, $row->tipo_operacion, $row->fecha_vencimiento?->format('Y-m-d'), $row->monto_reserva, $row->estado],
             'caja' => [$row->fecha?->format('Y-m-d'), $row->cliente?->nombre, $row->tipo, $row->concepto, $row->monto, $row->estado],
         };
     }

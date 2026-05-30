@@ -5,14 +5,17 @@ namespace Database\Seeders;
 use App\Models\CashMovement;
 use App\Models\Cliente;
 use App\Models\Cuota;
+use App\Models\GrupoComercial;
 use App\Models\Lote;
 use App\Models\LotHistory;
 use App\Models\Manzano;
 use App\Models\Reserva;
+use App\Models\SupervisorProfile;
 use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Models\Venta;
 use App\Models\AuditLog;
+use App\Models\Asesor;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Permission;
@@ -55,7 +58,16 @@ class DatabaseSeeder extends Seeder
             'anular caja',
             'ver reportes',
             'exportar reportes',
+            'ver reporte reservas',
+            'exportar reporte reservas',
+            'ver reporte mejor vendedor',
+            'exportar reporte mejor vendedor',
             'administrar usuarios',
+            'crear supervisores',
+            'editar supervisores',
+            'desactivar supervisores',
+            'crear grupos comerciales',
+            'editar grupos comerciales',
             'crear asesores',
             'editar asesores',
             'desactivar asesores',
@@ -74,9 +86,10 @@ class DatabaseSeeder extends Seeder
         Role::firstOrCreate(['name' => 'cliente', 'guard_name' => 'web']);
 
         $administrador->syncPermissions($permissions);
-        $gerente->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver ventas', 'ver reservas', 'crear lotes', 'editar lotes', 'crear clientes', 'editar clientes', 'crear ventas', 'editar ventas', 'anular ventas', 'crear reservas', 'cobrar cuotas', 'anular caja', 'ver reportes', 'exportar reportes']);
+        $gerente->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver ventas', 'ver reservas', 'crear lotes', 'editar lotes', 'crear clientes', 'editar clientes', 'crear ventas', 'editar ventas', 'anular ventas', 'crear reservas', 'cobrar cuotas', 'anular caja', 'ver reportes', 'exportar reportes', 'ver reporte reservas', 'exportar reporte reservas', 'ver reporte mejor vendedor', 'exportar reporte mejor vendedor']);
         $supervisor->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver ventas', 'ver reservas', 'ver reservas equipo', 'crear clientes', 'editar clientes', 'crear ventas', 'crear reservas', 'cobrar cuotas', 'crear asesores', 'editar asesores', 'desactivar asesores', 'asignar urbanizaciones a asesores', 'resetear contraseña asesor']);
-        $vendedor->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver ventas', 'ver reservas', 'crear clientes', 'editar clientes', 'crear ventas', 'crear reservas', 'cobrar cuotas']);
+        $vendedor->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver reservas', 'crear clientes', 'editar clientes', 'crear reservas', 'cobrar cuotas']);
+        $supervisor->givePermissionTo(['ver reportes', 'ver reporte reservas', 'exportar reporte reservas']);
 
         $admin = User::factory()->create(['name' => 'Administrador Impacto', 'email' => 'admin@impacto.test']);
         $admin->assignRole('administrador');
@@ -92,8 +105,13 @@ class DatabaseSeeder extends Seeder
         User::factory()->create(['name' => 'Gerente Comercial', 'email' => 'gerente@impacto.test'])->assignRole('gerente');
         $supervisorDemo = User::factory()->create(['name' => 'Supervisor Comercial', 'email' => 'supervisor@impacto.test']);
         $supervisorDemo->assignRole('supervisor');
+        SupervisorProfile::create(['user_id' => $supervisorDemo->id, 'nombre' => 'Supervisor Comercial', 'ci' => 'SUP-100', 'celular' => '70000001', 'email' => 'supervisor@impacto.test', 'direccion' => 'Oficina central', 'activo' => true]);
         $vendedorDemo = User::factory()->create(['name' => 'Asesor de Ventas', 'email' => 'vendedor@impacto.test']);
         $vendedorDemo->assignRole('vendedor');
+        $grupoNorte = GrupoComercial::create(['nombre' => 'Grupo Norte', 'descripcion' => 'Equipo comercial zona norte.', 'supervisor_id' => $supervisorDemo->id, 'activo' => true]);
+        GrupoComercial::create(['nombre' => 'Grupo Sur', 'descripcion' => 'Equipo comercial zona sur.', 'supervisor_id' => $supervisorDemo->id, 'activo' => true]);
+        GrupoComercial::create(['nombre' => 'Grupo Centro', 'descripcion' => 'Equipo comercial zona centro.', 'supervisor_id' => $supervisorDemo->id, 'activo' => true]);
+        Asesor::create(['user_id' => $vendedorDemo->id, 'supervisor_id' => $supervisorDemo->id, 'grupo_comercial_id' => $grupoNorte->id, 'nombre' => 'Asesor', 'apellido' => 'de Ventas', 'ci' => 'VEN-100', 'celular' => '70000002', 'email' => 'vendedor@impacto.test', 'direccion' => 'Oficina comercial', 'activo' => true]);
 
         $clientes = collect([
             ['nombre' => 'Mariela Fernandez Rojas', 'documento' => 'CI-4829137 SC', 'telefono' => '77012345', 'email' => 'mariela.fernandez@example.com', 'direccion' => 'Av. Banzer 5to anillo, Santa Cruz'],
@@ -244,6 +262,7 @@ class DatabaseSeeder extends Seeder
             'fecha_vencimiento' => now()->addDays(6),
             'monto_reserva' => 800,
             'estado' => 'activa',
+            'tipo_operacion' => 'credito',
             'observaciones' => 'Reserva activa de demostracion.',
         ]);
 
@@ -263,6 +282,7 @@ class DatabaseSeeder extends Seeder
             'fecha_vencimiento' => now()->subDays(5),
             'monto_reserva' => 500,
             'estado' => 'vencida',
+            'tipo_operacion' => 'contado',
             'observaciones' => 'Reserva vencida de demostracion; lote liberado.',
         ]);
 
@@ -281,6 +301,7 @@ class DatabaseSeeder extends Seeder
             'fecha_vencimiento' => now()->subDays(11),
             'monto_reserva' => 1000,
             'estado' => 'convertida',
+            'tipo_operacion' => 'semicontado',
             'observaciones' => 'Reserva convertida en venta durante la demo.',
         ]);
 

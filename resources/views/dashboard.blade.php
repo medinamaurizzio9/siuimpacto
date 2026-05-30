@@ -5,14 +5,37 @@
 @section('content')
 <div class="hero-panel">
     <div>
-        <h1 class="title">IMPACTO URBANIZACIONES</h1>
-        <div class="subtitle">Sistema Integral de Terrenos</div>
+        @if(!empty($systemSettings['logo_main']))
+            <img src="{{ asset('storage/'.$systemSettings['logo_main']) }}" alt="Logo" style="max-height:80px;margin-bottom:10px;">
+        @endif
+        <h1 class="title">{{ $systemSettings['system_name'] ?? 'IMPACTO URBANIZACIONES' }}</h1>
+        <div class="subtitle">{{ $systemSettings['system_subtitle'] ?? 'Sistema Integral de Terrenos' }}</div>
         <p class="muted">Resumen ejecutivo para seguimiento comercial, disponibilidad, cobranza y reservas.</p>
     </div>
     @can('crear ventas')
         <a class="btn" href="{{ route('ventas.create') }}">Registrar venta</a>
     @endcan
 </div>
+
+@if($supervisorDashboard)
+<div class="grid stats" style="margin-top:18px;">
+    <div class="card metric"><div class="muted">Reservas activas equipo</div><div class="stat-value">{{ $reservasActivasEquipo }}</div></div>
+    <div class="card metric"><div class="muted">Reservas canceladas equipo</div><div class="stat-value">{{ $reservasCanceladasEquipo }}</div></div>
+    <div class="card metric"><div class="muted">Reservas convertidas equipo</div><div class="stat-value">{{ $reservasConvertidasEquipo }}</div></div>
+    <div class="card metric"><div class="muted">Ventas cerradas equipo</div><div class="stat-value">{{ $ventasCerradasEquipo }}</div></div>
+    <div class="card metric"><div class="muted">Monto vendido equipo</div><div class="stat-value">{{ number_format($montoVendidoEquipo, 2) }}</div></div>
+</div>
+<div class="card" style="margin-top:18px;">
+    <h2>Ranking asesores de mi equipo</h2>
+    <table class="table"><thead><tr><th>Asesor</th><th>Reservas</th><th>Ventas</th><th>Monto vendido</th></tr></thead><tbody>
+        @forelse($rankingAsesoresEquipo as $row)
+            <tr><td>{{ $row['asesor'] }}</td><td>{{ $row['reservas'] }}</td><td>{{ $row['ventas'] }}</td><td>{{ number_format($row['monto'], 2) }}</td></tr>
+        @empty
+            <tr><td colspan="4">Aun no hay actividad del equipo.</td></tr>
+        @endforelse
+    </tbody></table>
+</div>
+@endif
 
 <div class="grid stats">
     <div class="card metric"><div class="muted">Lotes totales</div><div class="stat-value">{{ $totalLotes }}</div></div>

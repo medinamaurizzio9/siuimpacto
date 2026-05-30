@@ -4,7 +4,11 @@
 <div class="login-page">
     <form method="POST" action="{{ route('login.store') }}" class="login-card">
         @csrf
-        <h1>IMPACTO URBANIZACIONES</h1>
+        @if(!empty($systemSettings['logo_login'] ?? $systemSettings['logo_main']))
+            <img src="{{ asset('storage/'.($systemSettings['logo_login'] ?: $systemSettings['logo_main'])) }}" alt="Logo" style="max-height:92px;display:block;margin:0 auto 14px;">
+        @endif
+        <h1>{{ $systemSettings['system_name'] ?? 'IMPACTO URBANIZACIONES' }}</h1>
+        <p class="muted">{{ $systemSettings['system_subtitle'] ?? 'Sistema Integral de Terrenos' }}</p>
         <p class="muted">Ingreso administrativo</p>
         @if ($errors->any())
             <div class="errors">{{ $errors->first() }}</div>

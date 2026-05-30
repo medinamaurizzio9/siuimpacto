@@ -14,7 +14,8 @@
     <div class="field"><label>CI</label><input name="ci" value="{{ old('ci', $asesor->ci) }}" required></div>
     <div class="field"><label>Celular</label><input name="celular" value="{{ old('celular', $asesor->celular) }}"></div>
     <div class="field"><label>Email</label><input type="email" name="email" value="{{ old('email', $asesor->email) }}" required></div>
-    <div class="field"><label>Grupo comercial</label><input name="grupo_comercial" value="{{ old('grupo_comercial', $asesor->grupo_comercial) }}"></div>
+    <div class="field"><label>Direccion</label><input name="direccion" value="{{ old('direccion', $asesor->direccion) }}"></div>
+    <div class="field"><label>Grupo comercial</label><select name="grupo_comercial_id"><option value="">Sin grupo</option>@foreach($grupos as $grupo)<option value="{{ $grupo->id }}" @selected(old('grupo_comercial_id', $asesor->grupo_comercial_id) == $grupo->id)>{{ $grupo->nombre }}</option>@endforeach</select></div>
     <div class="field">
         <label>Supervisor</label>
         @role('supervisor')

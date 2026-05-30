@@ -8,11 +8,12 @@
 <div class="field"><label>Lote disponible</label><select name="lote_id" id="lote_id">@foreach($lotes as $lote)<option value="{{ $lote->id }}" @selected(old('lote_id', $reserva->lote_id) == $lote->id)>{{ $lote->manzano->urbanizacion->nombre }} / {{ $lote->manzano->codigo }}-{{ $lote->codigo }}</option>@endforeach</select></div>
 <div class="field"><label>Fecha reserva</label><input name="fecha_reserva" type="date" value="{{ old('fecha_reserva', optional($reserva->fecha_reserva)->format('Y-m-d') ?? now()->format('Y-m-d')) }}"></div>
 @if(auth()->user()->hasRole('vendedor'))
-    <div class="field"><label>Fecha vencimiento</label><input type="date" value="{{ old('fecha_vencimiento', optional($reserva->fecha_vencimiento)->format('Y-m-d') ?? now()->addDays(config('impacto.reserva_dias_vendedor', 7))->format('Y-m-d')) }}" disabled><span class="muted">Se calcula automaticamente para asesores.</span></div>
+    <div class="field"><label>Fecha vencimiento</label><input type="date" value="{{ old('fecha_vencimiento', optional($reserva->fecha_vencimiento)->format('Y-m-d')) }}" disabled><span class="muted">Se calcula automaticamente en dias habiles para asesores.</span></div>
 @else
     <div class="field"><label>Fecha vencimiento</label><input name="fecha_vencimiento" type="date" value="{{ old('fecha_vencimiento', optional($reserva->fecha_vencimiento)->format('Y-m-d') ?? now()->addDays(7)->format('Y-m-d')) }}"></div>
 @endif
 <div class="field"><label>Monto reserva</label><input name="monto_reserva" type="number" step="0.01" value="{{ old('monto_reserva', $reserva->monto_reserva ?? 0) }}"></div>
+<div class="field"><label>Tipo de operacion</label><select name="tipo_operacion" required>@foreach($tiposOperacion as $tipo)<option value="{{ $tipo }}" @selected(old('tipo_operacion', $reserva->tipo_operacion ?? 'contado') === $tipo)>{{ ucfirst($tipo) }}</option>@endforeach</select></div>
 <div class="field"><label>Metodo de pago</label><select name="metodo_pago">@foreach(['efectivo','transferencia','QR','banco','otro'] as $metodo)<option>{{ $metodo }}</option>@endforeach</select></div>
 <div class="field"><label>Referencia</label><input name="referencia" value="{{ old('referencia') }}"></div>
 @if($reserva->exists && auth()->user()->can('editar reservas'))

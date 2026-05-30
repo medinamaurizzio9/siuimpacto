@@ -83,13 +83,14 @@ class MapaLotePermisosTest extends TestCase
                 'fecha_reserva' => now()->toDateString(),
                 'fecha_vencimiento' => now()->addDays(90)->toDateString(),
                 'monto_reserva' => 100,
+                'tipo_operacion' => 'contado',
                 'metodo_pago' => 'efectivo',
             ])
             ->assertRedirect(route('reservas.index'));
 
         $reserva = Reserva::where('lote_id', $lote->id)->latest()->firstOrFail();
         $this->assertSame($vendedor->id, $reserva->usuario_id);
-        $this->assertTrue($reserva->fecha_vencimiento->isSameDay(now()->addDays((int) config('impacto.reserva_dias_vendedor', 7))));
+        $this->assertTrue($reserva->fecha_vencimiento->isSameDay(now()->addWeekdays(5)));
         $this->assertSame('reservado', $lote->fresh()->estado);
     }
 
@@ -129,6 +130,7 @@ class MapaLotePermisosTest extends TestCase
                 'lote_id' => $lote->id,
                 'fecha_reserva' => now()->toDateString(),
                 'monto_reserva' => 100,
+                'tipo_operacion' => 'contado',
                 'metodo_pago' => 'efectivo',
             ])
             ->assertForbidden();

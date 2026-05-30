@@ -2,18 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Asesor;
 use App\Models\CashMovement;
 use App\Models\Cliente;
 use App\Models\Cuota;
+use App\Models\GrupoComercial;
 use App\Models\Lote;
 use App\Models\Manzano;
 use App\Models\Reserva;
 use App\Models\User;
+use App\Models\Venta;
+use App\Services\AuditService;
+use App\Services\ReservationVisibilityService;
+use App\Services\SystemSettingsService;
 use App\Support\UrbanizacionContext;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class ReportController extends Controller
@@ -61,32 +69,44 @@ class ReportController extends Controller
         ]);
     }
 
-    public function reservas(Request $request): View
+    public function reservas(Request $request, ReservationVisibilityService $visibility): View
     {
-        $urbanizacionId = UrbanizacionContext::currentId();
-        $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano', 'usuario'), $urbanizacionId);
-
-        $this->applyDateRange($query, $request, 'fecha_reserva');
-
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->query('estado'));
-        }
-
-        if ($request->filled('usuario_id')) {
-            $query->where('usuario_id', $request->integer('usuario_id'));
-        }
-
-        $reservas = $query->orderByDesc('fecha_reserva')->get();
-        $base = UrbanizacionContext::reservas(Reserva::query(), $urbanizacionId);
+        $reservas = $this->reservasReportQuery($request, $visibility)
+            ->orderByDesc('fecha_reserva')
+            ->get();
 
         return view('reportes.reservas', [
             'reservas' => $reservas,
-            'vendedores' => User::role(['vendedor', 'supervisor'])->orderBy('name')->get(),
-            'activas' => (clone $base)->where('estado', 'activa')->count(),
-            'vencidas' => (clone $base)->where('estado', 'vencida')->count(),
-            'proximas' => (clone $base)->where('estado', 'activa')->whereBetween('fecha_vencimiento', [now(), now()->addDays(7)])->count(),
-            'convertidas' => (clone $base)->where('estado', 'convertida')->count(),
+            'vendedores' => $visibility->vendedores($request->user()),
+            'grupos' => $this->gruposDisponibles($request),
+            'supervisores' => User::role('supervisor')->orderBy('name')->get(),
+            'tiposOperacion' => Reserva::TIPOS_OPERACION,
+            'metricas' => $this->reservasMetricas($reservas),
         ]);
+    }
+
+    public function reservasExcel(Request $request, ReservationVisibilityService $visibility, AuditService $auditService): Response
+    {
+        $reservas = $this->reservasReportQuery($request, $visibility)->orderByDesc('fecha_reserva')->get();
+        $auditService->log(null, 'exportar_reporte_reservas', 'Exportacion Excel del reporte de reservas.', null, $request->query(), $request);
+
+        return response()
+            ->view('reportes.exports.reservas-excel', ['reservas' => $reservas, 'metricas' => $this->reservasMetricas($reservas)])
+            ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="reporte-reservas-impacto.xls"');
+    }
+
+    public function reservasPdf(Request $request, ReservationVisibilityService $visibility, AuditService $auditService, SystemSettingsService $settings): Response
+    {
+        $reservas = $this->reservasReportQuery($request, $visibility)->orderByDesc('fecha_reserva')->get();
+        $auditService->log(null, 'exportar_reporte_reservas', 'Exportacion PDF del reporte de reservas.', null, $request->query(), $request);
+
+        return Pdf::loadView('pdf.reporte-reservas', [
+            'reservas' => $reservas,
+            'metricas' => $this->reservasMetricas($reservas),
+            'urbanizacion' => UrbanizacionContext::current(),
+            'settings' => $settings->all(),
+        ])->download('reporte-reservas-impacto.pdf');
     }
 
     public function cuotas(Request $request): View
@@ -168,25 +188,192 @@ class ReportController extends Controller
         ]);
     }
 
+    public function mejorVendedor(Request $request, ReservationVisibilityService $visibility): View
+    {
+        return view('reportes.mejor-vendedor', [
+            'ranking' => $this->mejorVendedorRanking($request, $visibility),
+            'vendedores' => $visibility->vendedores($request->user()),
+            'supervisores' => User::role('supervisor')->orderBy('name')->get(),
+            'grupos' => $this->gruposDisponibles($request),
+            'mes' => $request->integer('mes') ?: now()->month,
+            'anio' => $request->integer('anio') ?: now()->year,
+        ]);
+    }
+
+    public function mejorVendedorExcel(Request $request, ReservationVisibilityService $visibility, AuditService $auditService): Response
+    {
+        $ranking = $this->mejorVendedorRanking($request, $visibility);
+        $auditService->log(null, 'exportar_reporte_mejor_vendedor', 'Exportacion Excel del reporte mejor vendedor.', null, $request->query(), $request);
+
+        return response()
+            ->view('reportes.exports.mejor-vendedor-excel', ['ranking' => $ranking])
+            ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="reporte-mejor-vendedor-impacto.xls"');
+    }
+
+    public function mejorVendedorPdf(Request $request, ReservationVisibilityService $visibility, AuditService $auditService, SystemSettingsService $settings): Response
+    {
+        $ranking = $this->mejorVendedorRanking($request, $visibility);
+        $auditService->log(null, 'exportar_reporte_mejor_vendedor', 'Exportacion PDF del reporte mejor vendedor.', null, $request->query(), $request);
+
+        return Pdf::loadView('pdf.reporte-mejor-vendedor', [
+            'ranking' => $ranking,
+            'urbanizacion' => UrbanizacionContext::current(),
+            'mes' => $request->integer('mes') ?: now()->month,
+            'anio' => $request->integer('anio') ?: now()->year,
+            'settings' => $settings->all(),
+        ])->download('reporte-mejor-vendedor-impacto.pdf');
+    }
+
     public function exportaciones(): View
     {
         return view('reportes.exportaciones');
     }
 
-    public function csv(Request $request, string $reporte): Response
+    public function csv(Request $request, string $reporte, ReservationVisibilityService $visibility, AuditService $auditService): Response
     {
         $csv = match ($reporte) {
             'lotes-estado' => $this->lotesCsv($request),
-            'reservas' => $this->reservasCsv($request),
+            'reservas' => $this->reservasCsv($request, $visibility),
             'cuotas' => $this->cuotasCsv($request),
             'ingresos' => $this->ingresosCsv($request),
             default => abort(404),
         };
 
+        if ($reporte === 'reservas') {
+            $auditService->log(null, 'exportar_reporte_reservas', 'Exportacion CSV del reporte de reservas.', null, $request->query(), $request);
+        }
+
         return response($csv, 200, [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="'.$reporte.'-impacto.csv"',
         ]);
+    }
+
+    private function reservasReportQuery(Request $request, ReservationVisibilityService $visibility): Builder
+    {
+        $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano', 'usuario'), UrbanizacionContext::currentId());
+        $visibility->apply($query, $request->user());
+        $this->applyReservaFilters($query, $request, $visibility);
+
+        return $query;
+    }
+
+    private function applyReservaFilters(Builder $query, Request $request, ReservationVisibilityService $visibility): void
+    {
+        $this->applyDateRange($query, $request, 'fecha_reserva');
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->query('estado'));
+        }
+
+        if ($request->filled('tipo_operacion')) {
+            $query->where('tipo_operacion', $request->query('tipo_operacion'));
+        }
+
+        if ($request->filled('usuario_id') && $visibility->canFilterUser($request->user(), $request->integer('usuario_id'))) {
+            $query->where('usuario_id', $request->integer('usuario_id'));
+        }
+
+        if ($request->filled('supervisor_id')) {
+            $query->where(function (Builder $builder) use ($request): void {
+                $builder->where('usuario_id', $request->integer('supervisor_id'))
+                    ->orWhereHas('usuario.asesor', fn (Builder $nested) => $nested->where('supervisor_id', $request->integer('supervisor_id')));
+            });
+        }
+
+        if ($request->filled('grupo_comercial_id')) {
+            $query->whereHas('usuario.asesor', fn (Builder $builder) => $builder->where('grupo_comercial_id', $request->integer('grupo_comercial_id')));
+        }
+
+        if ($request->filled('cliente')) {
+            $query->whereHas('cliente', fn (Builder $builder) => $builder->where('nombre', 'like', '%'.$request->query('cliente').'%'));
+        }
+
+        if ($request->filled('documento')) {
+            $query->whereHas('cliente', fn (Builder $builder) => $builder->where('documento', 'like', '%'.$request->query('documento').'%'));
+        }
+
+        if ($request->filled('lote')) {
+            $query->whereHas('lote', fn (Builder $builder) => $builder->where('codigo', 'like', '%'.$request->query('lote').'%'));
+        }
+
+        if ($request->filled('manzano')) {
+            $query->whereHas('lote.manzano', fn (Builder $builder) => $builder->where('codigo', 'like', '%'.$request->query('manzano').'%'));
+        }
+    }
+
+    private function reservasMetricas(Collection $reservas): array
+    {
+        return [
+            'total' => $reservas->count(),
+            'activas' => $reservas->where('estado', 'activa')->count(),
+            'vencidas' => $reservas->where('estado', 'vencida')->count(),
+            'canceladas' => $reservas->where('estado', 'cancelada')->count(),
+            'convertidas' => $reservas->where('estado', 'convertida')->count(),
+            'porTipo' => collect(Reserva::TIPOS_OPERACION)->mapWithKeys(fn (string $tipo) => [$tipo => $reservas->where('tipo_operacion', $tipo)->count()]),
+        ];
+    }
+
+    private function mejorVendedorRanking(Request $request, ReservationVisibilityService $visibility): Collection
+    {
+        $mes = $request->integer('mes') ?: now()->month;
+        $anio = $request->integer('anio') ?: now()->year;
+        $desde = Carbon::create($anio, $mes, 1)->startOfDay();
+        $hasta = $desde->copy()->endOfMonth()->endOfDay();
+
+        $vendedores = $visibility->vendedores($request->user());
+
+        if ($request->filled('usuario_id') && $visibility->canFilterUser($request->user(), $request->integer('usuario_id'))) {
+            $vendedores = $vendedores->where('id', $request->integer('usuario_id'))->values();
+        }
+
+        if ($request->filled('supervisor_id')) {
+            $asesorUserIds = Asesor::where('supervisor_id', $request->integer('supervisor_id'))->pluck('user_id');
+            $vendedores = $vendedores->whereIn('id', $asesorUserIds)->values();
+        }
+
+        if ($request->filled('grupo_comercial_id')) {
+            $asesorUserIds = Asesor::where('grupo_comercial_id', $request->integer('grupo_comercial_id'))->pluck('user_id');
+            $vendedores = $vendedores->whereIn('id', $asesorUserIds)->values();
+        }
+
+        $ranking = $vendedores->map(function (User $vendedor) use ($desde, $hasta) {
+            $reservas = UrbanizacionContext::reservas(Reserva::query(), UrbanizacionContext::currentId())
+                ->where('usuario_id', $vendedor->id)
+                ->whereBetween('fecha_reserva', [$desde, $hasta])
+                ->get();
+
+            $ventas = UrbanizacionContext::ventas(Venta::query(), UrbanizacionContext::currentId())
+                ->where('user_id', $vendedor->id)
+                ->whereBetween('fecha_venta', [$desde, $hasta])
+                ->whereIn('estado', ['activa', 'completada'])
+                ->get();
+
+            $asesor = Asesor::with('supervisor')->where('user_id', $vendedor->id)->first();
+            $totalReservas = $reservas->count();
+            $ventasCerradas = $ventas->count();
+
+            return [
+                'asesor' => $vendedor->name,
+                'supervisor' => $asesor?->supervisor?->name ?? '-',
+                'reservas' => $totalReservas,
+                'activas' => $reservas->where('estado', 'activa')->count(),
+                'canceladas' => $reservas->where('estado', 'cancelada')->count(),
+                'vencidas' => $reservas->where('estado', 'vencida')->count(),
+                'convertidas' => $reservas->where('estado', 'convertida')->count(),
+                'ventas_cerradas' => $ventasCerradas,
+                'monto_vendido' => (float) $ventas->sum('precio_final'),
+                'conversion' => $totalReservas > 0 ? round(($ventasCerradas / $totalReservas) * 100, 2) : 0,
+            ];
+        })->sort(function (array $a, array $b) {
+            return [$b['monto_vendido'], $b['ventas_cerradas'], $b['reservas']]
+                <=> [$a['monto_vendido'], $a['ventas_cerradas'], $a['reservas']];
+        })->values();
+
+        return $ranking->map(function (array $row, int $index) {
+            return ['ranking' => $index + 1, ...$row];
+        });
     }
 
     private function applyDateRange(Builder $query, Request $request, string $column): void
@@ -200,9 +387,21 @@ class ReportController extends Controller
         }
     }
 
+    private function gruposDisponibles(Request $request): Collection
+    {
+        $query = GrupoComercial::where('activo', true)->orderBy('nombre');
+
+        if ($request->user()->hasRole('supervisor')) {
+            $query->where('supervisor_id', $request->user()->id);
+        }
+
+        return $query->get();
+    }
+
     private function clientesDeUrbanizacion(?int $urbanizacionId)
     {
-        return Cliente::whereHas('ventas.lote.manzano', fn (Builder $builder) => $builder->where('urbanizacion_id', $urbanizacionId))
+        return Cliente::where('urbanizacion_id', $urbanizacionId)
+            ->orWhereHas('ventas.lote.manzano', fn (Builder $builder) => $builder->where('urbanizacion_id', $urbanizacionId))
             ->orderBy('nombre')
             ->get();
     }
@@ -226,25 +425,20 @@ class ReportController extends Controller
         ]);
     }
 
-    private function reservasCsv(Request $request): string
+    private function reservasCsv(Request $request, ReservationVisibilityService $visibility): string
     {
-        $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano', 'usuario'), UrbanizacionContext::currentId());
-        $this->applyDateRange($query, $request, 'fecha_reserva');
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->query('estado'));
-        }
-        if ($request->filled('usuario_id')) {
-            $query->where('usuario_id', $request->integer('usuario_id'));
-        }
+        $reservas = $this->reservasReportQuery($request, $visibility)->orderByDesc('fecha_reserva')->get();
 
-        return $this->csvFromRows(['cliente', 'manzano', 'lote', 'estado', 'fecha_reserva', 'fecha_vencimiento', 'vendedor'], $query->get(), fn (Reserva $reserva) => [
+        return $this->csvFromRows(['fecha', 'cliente', 'documento', 'manzano', 'lote', 'tipo_operacion', 'estado', 'asesor', 'fecha_vencimiento'], $reservas, fn (Reserva $reserva) => [
+            $reserva->fecha_reserva?->format('Y-m-d'),
             $reserva->cliente->nombre,
+            $reserva->cliente->documento,
             $reserva->lote->manzano->codigo,
             $reserva->lote->codigo,
+            $reserva->tipo_operacion,
             $reserva->estado,
-            $reserva->fecha_reserva?->format('Y-m-d'),
-            $reserva->fecha_vencimiento?->format('Y-m-d'),
             $reserva->usuario?->name,
+            $reserva->fecha_vencimiento?->format('Y-m-d'),
         ]);
     }
 

@@ -10,7 +10,12 @@
 @endphp
 
 <aside class="sidebar">
-    <div class="brand">IMPACTO<br>URBANIZACIONES<span>Sistema Integral de Terrenos</span></div>
+    <div class="brand">
+        @if(!empty($systemSettings['logo_main']))
+            <img src="{{ asset('storage/'.$systemSettings['logo_main']) }}" alt="Logo" style="max-width:72px;max-height:72px;display:block;margin-bottom:8px;">
+        @endif
+        {{ $systemSettings['system_name'] ?? 'IMPACTO URBANIZACIONES' }}<span>{{ $systemSettings['system_subtitle'] ?? 'Sistema Integral de Terrenos' }}</span>
+    </div>
 
     @unless($isCliente)
         <div class="current-project">
@@ -66,11 +71,10 @@
         @endif
 
         @if($hasProject && ($isAdmin || $isGerente || $isSupervisor || $isVendedor))
-            @php($isOpen = $active(['reservas.*', 'clientes.*', 'ventas.*']) || request()->routeIs('disponibilidad.publica'))
+            @php($isOpen = $active(['reservas.*', 'clientes.*', 'ventas.*']))
             <div @class(['sidebar-group', 'open' => $isOpen, 'active' => $isOpen]) data-menu-key="comercial">
                 <button class="sidebar-group-toggle" type="button" data-menu-toggle aria-expanded="{{ $isOpen ? 'true' : 'false' }}"><span>*</span> Comercial</button>
                 <div class="sidebar-submenu">
-                    <a class="sidebar-link" href="{{ route('disponibilidad.publica') }}">Disponibilidad</a>
                     @if($isAdmin || $isGerente)
                         @can('ver reservas')<a @class(['sidebar-link', 'active' => $active('reservas.*')]) href="{{ route('reservas.index') }}">Reservas</a>@endcan
                         @can('ver clientes')<a @class(['sidebar-link', 'active' => $active('clientes.index')]) href="{{ route('clientes.index') }}">Clientes / Interesados</a>@endcan
@@ -98,7 +102,7 @@
             </div>
         @endif
 
-        @if($hasProject && ($isAdmin || $isGerente) && $user?->can('ver reportes'))
+        @if($hasProject && $user?->can('ver reportes'))
             @php($isOpen = $active(['reportes.*', 'export.csv']))
             <div @class(['sidebar-group', 'open' => $isOpen, 'active' => $isOpen]) data-menu-key="reportes">
                 <button class="sidebar-group-toggle" type="button" data-menu-toggle aria-expanded="{{ $isOpen ? 'true' : 'false' }}"><span>%</span> Reportes</button>
@@ -106,6 +110,7 @@
                     <a @class(['sidebar-link', 'active' => $active('reportes.index')]) href="{{ route('reportes.index') }}">Resumen</a>
                     <a @class(['sidebar-link', 'active' => $active('reportes.lotes-estado')]) href="{{ route('reportes.lotes-estado') }}">Lotes por estado</a>
                     <a @class(['sidebar-link', 'active' => $active('reportes.reservas')]) href="{{ route('reportes.reservas') }}">Reservas</a>
+                    @can('ver reporte mejor vendedor')<a @class(['sidebar-link', 'active' => $active('reportes.mejor-vendedor')]) href="{{ route('reportes.mejor-vendedor') }}">Mejor vendedor</a>@endcan
                     <a @class(['sidebar-link', 'active' => $active('reportes.cuotas')]) href="{{ route('reportes.cuotas') }}">Cuotas pendientes/vencidas</a>
                     <a @class(['sidebar-link', 'active' => $active('reportes.ingresos')]) href="{{ route('reportes.ingresos') }}">Ingresos</a>
                     <a @class(['sidebar-link', 'active' => $active('reportes.estado-cuenta')]) href="{{ route('reportes.estado-cuenta') }}">Estado de cuenta</a>
@@ -115,14 +120,16 @@
         @endif
 
         @if($user?->can('editar asesores') || $user?->can('asignar urbanizaciones a asesores'))
-            @php($isOpen = $active(['asesores.*', 'urbanizaciones.asignaciones']))
+            @php($isOpen = $active(['asesores.*', 'supervisores.*', 'grupos-comerciales.*', 'urbanizaciones.asignaciones']))
             <div @class(['sidebar-group', 'open' => $isOpen, 'active' => $isOpen]) data-menu-key="equipo-comercial">
                 <button class="sidebar-group-toggle" type="button" data-menu-toggle aria-expanded="{{ $isOpen ? 'true' : 'false' }}"><span>@</span> Equipo comercial</button>
                 <div class="sidebar-submenu">
                     @can('editar asesores')<a @class(['sidebar-link', 'active' => $active('asesores.*')]) href="{{ route('asesores.index') }}">{{ $isSupervisor ? 'Asesores de mi equipo' : 'Asesores' }}</a>@endcan
                     @if($isAdmin)
-                        <span class="nav-disabled">Supervisores</span>
-                        <span class="nav-disabled">Grupos comerciales</span>
+                        <a @class(['sidebar-link', 'active' => $active('supervisores.*')]) href="{{ route('supervisores.index') }}">Supervisores</a>
+                        <a @class(['sidebar-link', 'active' => $active('grupos-comerciales.*')]) href="{{ route('grupos-comerciales.index') }}">Grupos comerciales</a>
+                    @elseif($isSupervisor)
+                        <a @class(['sidebar-link', 'active' => $active('grupos-comerciales.*')]) href="{{ route('grupos-comerciales.index') }}">Mis grupos</a>
                     @endif
                     @can('asignar urbanizaciones a asesores')<a @class(['sidebar-link', 'active' => $active('urbanizaciones.asignaciones')]) href="{{ route('urbanizaciones.asignaciones') }}">Asignar urbanizaciones</a>@endcan
                 </div>
@@ -136,6 +143,7 @@
                 <div class="sidebar-submenu">
                     <a @class(['sidebar-link', 'active' => $active('admin.usuarios')]) href="{{ route('admin.usuarios') }}">Usuarios</a>
                     <a @class(['sidebar-link', 'active' => $active('admin.roles')]) href="{{ route('admin.roles') }}">Roles y permisos</a>
+                    <a @class(['sidebar-link', 'active' => $active('admin.configuracion-general')]) href="{{ route('admin.configuracion-general') }}">Configuracion general</a>
                     <a @class(['sidebar-link', 'active' => $active('admin.configuracion')]) href="{{ route('admin.configuracion') }}">Configuracion comercial</a>
                     <a @class(['sidebar-link', 'active' => $active('admin.auditoria')]) href="{{ route('admin.auditoria') }}">Auditoria</a>
                     <a @class(['sidebar-link', 'active' => $active('admin.backups')]) href="{{ route('admin.backups') }}">Backups</a>

@@ -7,8 +7,10 @@ use App\Models\Cliente;
 use App\Models\Lote;
 use App\Models\Reserva;
 use App\Services\AuditService;
+use App\Services\CommercialSettingsService;
 use App\Services\LotService;
 use App\Services\ReservationService;
+use App\Services\ReservationVisibilityService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,27 +18,69 @@ use Illuminate\View\View;
 
 class ReservaController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, ReservationVisibilityService $visibility): View
     {
         $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano.urbanizacion', 'usuario'))->latest();
+        $visibility->apply($query, $request->user());
 
+        $this->applyFilters($query, $request, $visibility);
+
+        return view('reservas.index', [
+            'reservas' => $query->paginate(15)->withQueryString(),
+            'vendedores' => $visibility->vendedores($request->user()),
+            'tiposOperacion' => Reserva::TIPOS_OPERACION,
+        ]);
+    }
+
+    private function applyFilters($query, Request $request, ReservationVisibilityService $visibility): void
+    {
         if ($request->filled('estado')) {
             $query->where('estado', $request->query('estado'));
         }
 
-        if ($request->user()->hasRole('vendedor')) {
-            $query->where('usuario_id', $request->user()->id);
+        if ($request->filled('tipo_operacion')) {
+            $query->where('tipo_operacion', $request->query('tipo_operacion'));
         }
 
-        return view('reservas.index', ['reservas' => $query->paginate(15)]);
+        if ($request->filled('usuario_id') && $visibility->canFilterUser($request->user(), $request->integer('usuario_id'))) {
+            $query->where('usuario_id', $request->integer('usuario_id'));
+        }
+
+        if ($request->filled('cliente')) {
+            $query->whereHas('cliente', fn ($builder) => $builder->where('nombre', 'like', '%'.$request->query('cliente').'%'));
+        }
+
+        if ($request->filled('documento')) {
+            $query->whereHas('cliente', fn ($builder) => $builder->where('documento', 'like', '%'.$request->query('documento').'%'));
+        }
+
+        if ($request->filled('lote')) {
+            $query->whereHas('lote', fn ($builder) => $builder->where('codigo', 'like', '%'.$request->query('lote').'%'));
+        }
+
+        if ($request->filled('manzano')) {
+            $query->whereHas('lote.manzano', fn ($builder) => $builder->where('codigo', 'like', '%'.$request->query('manzano').'%'));
+        }
+
+        if ($request->filled('desde')) {
+            $query->whereDate('fecha_reserva', '>=', $request->query('desde'));
+        }
+
+        if ($request->filled('hasta')) {
+            $query->whereDate('fecha_reserva', '<=', $request->query('hasta'));
+        }
     }
 
-    public function create(Request $request): View
+    public function create(Request $request, CommercialSettingsService $settings): View
     {
+        $fechaReserva = now();
         $reserva = new Reserva([
-            'fecha_reserva' => now(),
-            'fecha_vencimiento' => now()->addDays($request->user()->hasRole('vendedor') ? (int) config('impacto.reserva_dias_vendedor', 7) : 7),
+            'fecha_reserva' => $fechaReserva,
+            'fecha_vencimiento' => $request->user()->hasRole('vendedor')
+                ? $settings->addBusinessDays($fechaReserva, $settings->reservaDiasHabilesAsesor())
+                : $fechaReserva->copy()->addDays(7),
             'monto_reserva' => 0,
+            'tipo_operacion' => 'contado',
         ]);
 
         if ($request->filled('lote_id')) {
@@ -124,6 +168,7 @@ class ReservaController extends Controller
                 ->where(fn ($query) => $query->where('estado', 'disponible')->orWhere('id', $reserva->lote_id))
                 ->orderBy('codigo')
                 ->get(),
+            'tiposOperacion' => Reserva::TIPOS_OPERACION,
         ];
     }
 }

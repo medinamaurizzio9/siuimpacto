@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Reserva extends Model
 {
+    public const TIPOS_OPERACION = ['contado', 'credito', 'semicontado'];
+
     protected $fillable = [
         'cliente_id',
         'lote_id',
@@ -16,6 +18,7 @@ class Reserva extends Model
         'fecha_vencimiento',
         'monto_reserva',
         'estado',
+        'tipo_operacion',
         'observaciones',
     ];
 

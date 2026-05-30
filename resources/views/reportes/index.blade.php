@@ -12,6 +12,7 @@
 <section class="grid report-card-grid" style="margin-top:18px;">
     <a class="card report-link-card" href="{{ route('reportes.lotes-estado') }}"><strong>Lotes por estado</strong><span>Disponibles, vendidos, reservados y bloqueados.</span></a>
     <a class="card report-link-card" href="{{ route('reportes.reservas') }}"><strong>Reservas</strong><span>Reservas activas, vencidas, canceladas y convertidas.</span></a>
+    @can('ver reporte mejor vendedor')<a class="card report-link-card" href="{{ route('reportes.mejor-vendedor') }}"><strong>Mejor vendedor</strong><span>Ranking mensual de asesores y conversion.</span></a>@endcan
     <a class="card report-link-card" href="{{ route('reportes.cuotas') }}"><strong>Cuotas pendientes/vencidas</strong><span>Plan de pagos, saldos y vencimientos.</span></a>
     <a class="card report-link-card" href="{{ route('reportes.ingresos') }}"><strong>Ingresos</strong><span>Movimientos de caja de tipo ingreso.</span></a>
     <a class="card report-link-card" href="{{ route('reportes.estado-cuenta') }}"><strong>Estado de cuenta</strong><span>Consulta individual por cliente.</span></a>

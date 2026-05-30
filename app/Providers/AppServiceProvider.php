@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Support\UrbanizacionContext;
+use App\Services\SystemSettingsService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
 
@@ -21,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        View::composer('*', function ($view): void {
+            $view->with('systemSettings', app(SystemSettingsService::class)->all());
+        });
+
         View::composer('layouts.app', function ($view): void {
             $user = auth()->user();
 

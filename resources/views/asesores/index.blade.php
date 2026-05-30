@@ -2,12 +2,12 @@
 @section('content')
 <div class="topbar">
     <h1 class="title">Equipo comercial</h1>
-    <div class="actions">@can('crear asesores')<a class="btn" href="{{ route('asesores.create') }}">Crear asesor</a>@endcan</div>
+    <div class="actions">@can('exportar reportes')<a class="btn secondary" href="{{ route('asesores.excel') }}">Exportar Excel</a><a class="btn secondary" href="{{ route('asesores.pdf') }}">Exportar PDF</a>@endcan @can('crear asesores')<a class="btn" href="{{ route('asesores.create') }}">Crear asesor</a>@endcan</div>
 </div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
 
 <table class="table">
-    <thead><tr><th>Asesor</th><th>CI</th><th>Celular</th><th>Supervisor</th><th>Urbanizaciones</th><th>Estado</th><th></th></tr></thead>
+    <thead><tr><th>Asesor</th><th>CI</th><th>Celular</th><th>Supervisor</th><th>Grupo</th><th>Urbanizaciones</th><th>Estado</th><th></th></tr></thead>
     <tbody>
     @foreach($asesores as $asesor)
         <tr>
@@ -15,6 +15,7 @@
             <td>{{ $asesor->ci }}</td>
             <td>{{ $asesor->celular }}</td>
             <td>{{ $asesor->supervisor?->name ?? 'Sin supervisor' }}</td>
+            <td>{{ $asesor->grupo?->nombre ?? $asesor->grupo_comercial ?? 'Sin grupo' }}</td>
             <td>{{ $asesor->user->urbanizacionesAsignadas->pluck('nombre')->join(', ') ?: 'Sin asignar' }}</td>
             <td><span class="badge {{ $asesor->activo ? 'activa' : 'cancelada' }}">{{ $asesor->activo ? 'activo' : 'inactivo' }}</span></td>
             <td class="actions">

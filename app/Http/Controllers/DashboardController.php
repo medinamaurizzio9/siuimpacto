@@ -8,20 +8,24 @@ use App\Models\Cuota;
 use App\Models\Lote;
 use App\Models\Reserva;
 use App\Models\Venta;
+use App\Services\ReservationVisibilityService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(ReservationVisibilityService $visibility): View
     {
         $urbanizacionId = UrbanizacionContext::currentId();
+        $user = request()->user();
+        $visibleIds = $visibility->visibleUserIds($user);
         $lotesQuery = fn () => UrbanizacionContext::lotes(Lote::query(), $urbanizacionId);
         $cashQuery = fn () => UrbanizacionContext::cashMovements(CashMovement::query(), $urbanizacionId);
-        $ventasQuery = fn () => UrbanizacionContext::ventas(Venta::query(), $urbanizacionId);
+        $ventasQuery = fn () => UrbanizacionContext::ventas(Venta::query(), $urbanizacionId)
+            ->when($user->hasRole('supervisor') && $visibleIds !== null, fn ($query) => $query->whereIn('user_id', $visibleIds));
         $cuotasQuery = fn () => UrbanizacionContext::cuotas(Cuota::query(), $urbanizacionId);
-        $reservasQuery = fn () => UrbanizacionContext::reservas(Reserva::query(), $urbanizacionId);
+        $reservasQuery = fn () => $visibility->apply(UrbanizacionContext::reservas(Reserva::query(), $urbanizacionId), $user);
 
         $lotesPorEstado = $lotesQuery()->selectRaw('estado, count(*) as total')->groupBy('estado')->pluck('total', 'estado');
         $ingresosPorMes = $cashQuery()->where('tipo', 'ingreso')
@@ -57,6 +61,18 @@ class DashboardController extends Controller
                 ->orderBy('fecha_vencimiento')
                 ->take(6)
                 ->get(),
+            'supervisorDashboard' => $user->hasRole('supervisor'),
+            'reservasActivasEquipo' => $reservasQuery()->where('estado', 'activa')->count(),
+            'reservasCanceladasEquipo' => $reservasQuery()->where('estado', 'cancelada')->count(),
+            'reservasConvertidasEquipo' => $reservasQuery()->where('estado', 'convertida')->count(),
+            'ventasCerradasEquipo' => $ventasQuery()->whereIn('estado', ['activa', 'completada'])->count(),
+            'montoVendidoEquipo' => $ventasQuery()->whereIn('estado', ['activa', 'completada'])->sum('precio_final'),
+            'rankingAsesoresEquipo' => $visibility->vendedores($user)->map(function ($asesor) use ($urbanizacionId) {
+                $reservas = UrbanizacionContext::reservas(Reserva::query(), $urbanizacionId)->where('usuario_id', $asesor->id)->count();
+                $ventas = UrbanizacionContext::ventas(Venta::query(), $urbanizacionId)->where('user_id', $asesor->id)->whereIn('estado', ['activa', 'completada']);
+
+                return ['asesor' => $asesor->name, 'reservas' => $reservas, 'ventas' => $ventas->count(), 'monto' => $ventas->sum('precio_final')];
+            })->sortByDesc('monto')->values(),
         ]);
     }
 }

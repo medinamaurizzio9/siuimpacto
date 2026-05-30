@@ -12,11 +12,13 @@ class Asesor extends Model
     protected $fillable = [
         'user_id',
         'supervisor_id',
+        'grupo_comercial_id',
         'nombre',
         'apellido',
         'ci',
         'celular',
         'email',
+        'direccion',
         'grupo_comercial',
         'activo',
     ];
@@ -36,5 +38,10 @@ class Asesor extends Model
     public function supervisor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'supervisor_id');
+    }
+
+    public function grupo(): BelongsTo
+    {
+        return $this->belongsTo(GrupoComercial::class, 'grupo_comercial_id');
     }
 }

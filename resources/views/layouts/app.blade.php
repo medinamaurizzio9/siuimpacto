@@ -3,8 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'IMPACTO URBANIZACIONES')</title>
+    <title>@yield('title', $systemSettings['system_name'] ?? 'IMPACTO URBANIZACIONES')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <style>:root{--primary:{{ $systemSettings['primary_color'] ?? '#0f766e' }};--secondary:{{ $systemSettings['secondary_color'] ?? '#0f2530' }};}</style>
 </head>
 <body>
 @auth
@@ -12,7 +13,7 @@
         @include('layouts.partials.sidebar')
         <main class="main">
             @yield('content')
-            <footer class="footer">Version piloto - MVP funcional.</footer>
+            <footer class="footer">{{ $systemSettings['footer_text'] ?? 'Version piloto - MVP funcional.' }}</footer>
         </main>
     </div>
 @else

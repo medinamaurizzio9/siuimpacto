@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asesor;
+use App\Models\GrupoComercial;
 use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Services\AuditService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -17,7 +20,7 @@ class AsesorController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = Asesor::with('user', 'supervisor', 'user.urbanizacionesAsignadas')->latest();
+        $query = Asesor::with('user', 'supervisor', 'grupo', 'user.urbanizacionesAsignadas')->latest();
 
         if ($request->user()->hasRole('supervisor')) {
             $query->where('supervisor_id', $request->user()->id);
@@ -49,11 +52,13 @@ class AsesorController extends Controller
             $asesor = Asesor::create([
                 'user_id' => $user->id,
                 'supervisor_id' => $data['supervisor_id'] ?? null,
+                'grupo_comercial_id' => $data['grupo_comercial_id'] ?? null,
                 'nombre' => $data['nombre'],
                 'apellido' => $data['apellido'],
                 'ci' => $data['ci'],
                 'celular' => $data['celular'] ?? null,
                 'email' => $data['email'],
+                'direccion' => $data['direccion'] ?? null,
                 'grupo_comercial' => $data['grupo_comercial'] ?? null,
                 'activo' => $request->boolean('activo'),
             ]);
@@ -86,11 +91,13 @@ class AsesorController extends Controller
         DB::transaction(function () use ($request, $asesor, $data, $auditService, $before, $beforeUrbanizaciones): void {
             $asesor->update([
                 'supervisor_id' => $data['supervisor_id'] ?? null,
+                'grupo_comercial_id' => $data['grupo_comercial_id'] ?? null,
                 'nombre' => $data['nombre'],
                 'apellido' => $data['apellido'],
                 'ci' => $data['ci'],
                 'celular' => $data['celular'] ?? null,
                 'email' => $data['email'],
+                'direccion' => $data['direccion'] ?? null,
                 'grupo_comercial' => $data['grupo_comercial'] ?? null,
                 'activo' => $request->boolean('activo'),
             ]);
@@ -132,6 +139,19 @@ class AsesorController extends Controller
         return back()->with('status', 'Contrasena reiniciada. El asesor debera cambiarla al iniciar sesion.');
     }
 
+    public function excel(Request $request): Response
+    {
+        return response()
+            ->view('asesores.export', ['asesores' => $this->scopedQuery($request)->get()])
+            ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="asesores-impacto.xls"');
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return Pdf::loadView('asesores.export', ['asesores' => $this->scopedQuery($request)->get()])->download('asesores-impacto.pdf');
+    }
+
     private function formData(Request $request, Asesor $asesor): array
     {
         $urbanizaciones = $request->user()->hasRole('supervisor')
@@ -141,9 +161,23 @@ class AsesorController extends Controller
         return [
             'asesor' => $asesor,
             'supervisores' => User::role('supervisor')->orderBy('name')->get(),
+            'grupos' => $request->user()->hasRole('supervisor')
+                ? GrupoComercial::where('supervisor_id', $request->user()->id)->where('activo', true)->orderBy('nombre')->get()
+                : GrupoComercial::where('activo', true)->orderBy('nombre')->get(),
             'urbanizaciones' => $urbanizaciones,
             'urbanizacionesAsignadas' => $asesor->exists ? $asesor->user->urbanizacionesAsignadas()->pluck('urbanizaciones.id')->all() : [],
         ];
+    }
+
+    private function scopedQuery(Request $request)
+    {
+        $query = Asesor::with('user', 'supervisor', 'grupo', 'user.urbanizacionesAsignadas')->latest();
+
+        if ($request->user()->hasRole('supervisor')) {
+            $query->where('supervisor_id', $request->user()->id);
+        }
+
+        return $query;
     }
 
     private function validated(Request $request, ?Asesor $asesor = null): array
@@ -160,6 +194,8 @@ class AsesorController extends Controller
             'ci' => ['required', 'string', 'max:50', Rule::unique('asesores', 'ci')->ignore($asesor)],
             'celular' => ['nullable', 'string', 'max:50'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($asesor?->user_id)],
+            'direccion' => ['nullable', 'string', 'max:255'],
+            'grupo_comercial_id' => ['nullable', 'exists:grupos_comerciales,id'],
             'grupo_comercial' => ['nullable', 'string', 'max:255'],
             'supervisor_id' => ['nullable', 'exists:users,id'],
             'urbanizaciones' => ['nullable', 'array'],
@@ -169,6 +205,9 @@ class AsesorController extends Controller
 
         if ($request->user()->hasRole('supervisor')) {
             $data['supervisor_id'] = $request->user()->id;
+            if (! empty($data['grupo_comercial_id'])) {
+                abort_unless(GrupoComercial::whereKey($data['grupo_comercial_id'])->where('supervisor_id', $request->user()->id)->exists(), 403);
+            }
         }
 
         return $data;
