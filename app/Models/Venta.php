@@ -10,13 +10,22 @@ class Venta extends Model
 {
     protected $fillable = [
         'lote_id',
+        'urbanizacion_id',
         'cliente_id',
         'user_id',
         'reserva_id',
+        'vendedor_id',
+        'supervisor_ventas_id',
+        'supervisor_comercial_id',
+        'grupo_comercial_id',
+        'usuario_creador_id',
+        'usuario_actualizador_id',
         'fecha_venta',
         'precio_final',
+        'monto_total',
         'cuota_inicial',
         'numero_cuotas',
+        'tipo_venta',
         'estado',
         'observaciones',
     ];
@@ -46,6 +55,41 @@ class Venta extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function urbanizacion(): BelongsTo
+    {
+        return $this->belongsTo(Urbanizacion::class);
+    }
+
+    public function vendedor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'vendedor_id');
+    }
+
+    public function supervisorVentas(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_ventas_id');
+    }
+
+    public function supervisorComercial(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_comercial_id');
+    }
+
+    public function grupoComercial(): BelongsTo
+    {
+        return $this->belongsTo(GrupoComercial::class);
+    }
+
+    public function creador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'usuario_creador_id');
+    }
+
+    public function actualizador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'usuario_actualizador_id');
     }
 
     public function cuotas(): HasMany

@@ -9,24 +9,13 @@ use Illuminate\Support\Collection;
 
 class ReservationVisibilityService
 {
+    public function __construct(private CommercialAccessService $commercialAccess)
+    {
+    }
+
     public function visibleUserIds(User $user): ?array
     {
-        if ($user->hasRole('administrador') || $user->hasRole('gerente')) {
-            return null;
-        }
-
-        if ($user->hasRole('supervisor')) {
-            $ids = Asesor::where('supervisor_id', $user->id)->pluck('user_id')->all();
-            $ids[] = $user->id;
-
-            return array_values(array_unique($ids));
-        }
-
-        if ($user->hasRole('vendedor')) {
-            return [$user->id];
-        }
-
-        return [$user->id];
+        return $this->commercialAccess->visibleUserIds($user);
     }
 
     public function apply(Builder $query, User $user): Builder
@@ -38,7 +27,7 @@ class ReservationVisibilityService
 
     public function vendedores(User $user): Collection
     {
-        $query = User::whereHas('roles', fn ($builder) => $builder->whereIn('name', ['vendedor', 'supervisor']))->orderBy('name');
+        $query = User::whereHas('roles', fn ($builder) => $builder->whereIn('name', ['vendedor', 'supervisor', 'supervisor ventas', 'supervisor comercial']))->orderBy('name');
         $ids = $this->visibleUserIds($user);
 
         if ($ids !== null) {

@@ -27,6 +27,10 @@ class StoreVentaRequest extends FormRequest
             'metodo_pago' => ['nullable', 'in:efectivo,transferencia,QR,banco,otro'],
             'referencia' => ['nullable', 'string', 'max:255'],
             'admin_confirma_reserva' => ['nullable', 'boolean'],
+            'grupo_comercial_id' => ['nullable', 'exists:grupos_comerciales,id'],
+            'supervisor_comercial_id' => ['nullable', 'exists:users,id'],
+            'supervisor_ventas_id' => ['nullable', 'exists:users,id'],
+            'vendedor_id' => ['nullable', 'exists:users,id'],
         ];
     }
 

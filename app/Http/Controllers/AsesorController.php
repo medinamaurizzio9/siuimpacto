@@ -64,6 +64,9 @@ class AsesorController extends Controller
             ]);
 
             $user->urbanizacionesAsignadas()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
+            if ($asesor->grupo_comercial_id) {
+                $asesor->grupo->usuarios()->syncWithoutDetaching([$user->id => ['tipo' => 'vendedor', 'activo' => true]]);
+            }
 
             $auditService->log($asesor, 'crear_asesor', 'Asesor creado con usuario de sistema.', null, $asesor->toArray(), $request);
             $auditService->log($asesor, 'asignar_urbanizaciones_asesor', 'Urbanizaciones asignadas al asesor.', null, ['urbanizaciones' => $data['urbanizaciones'] ?? []], $request);
@@ -106,6 +109,7 @@ class AsesorController extends Controller
                 'email' => $data['email'],
             ]);
             $asesor->user->urbanizacionesAsignadas()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
+            $asesor->user->gruposComerciales()->sync($asesor->grupo_comercial_id ? [$asesor->grupo_comercial_id => ['tipo' => 'vendedor', 'activo' => true]] : []);
 
             $auditService->log($asesor, 'editar_asesor', 'Asesor actualizado.', $before, $asesor->fresh()->toArray(), $request);
             $auditService->log($asesor, 'asignar_urbanizaciones_asesor', 'Urbanizaciones actualizadas del asesor.', ['urbanizaciones' => $beforeUrbanizaciones], ['urbanizaciones' => $data['urbanizaciones'] ?? []], $request);

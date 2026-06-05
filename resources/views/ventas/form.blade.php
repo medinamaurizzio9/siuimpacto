@@ -13,6 +13,12 @@
 <div class="field"><label>Metodo de pago</label><select name="metodo_pago">@foreach(['efectivo','transferencia','QR','banco','otro'] as $metodo)<option @selected(old('metodo_pago', 'efectivo') === $metodo)>{{ $metodo }}</option>@endforeach</select></div>
 <div class="field"><label>Referencia</label><input name="referencia" value="{{ old('referencia') }}"></div>
 <div class="field"><label>Estado</label><select name="estado">@foreach(['activa','completada','anulada'] as $estado)<option @selected(old('estado', $venta->estado ?? 'activa') === $estado)>{{ $estado }}</option>@endforeach</select></div>
+@if($isSuperAdmin)
+<div class="field"><label>Grupo comercial</label><select name="grupo_comercial_id"><option value="">Sin grupo</option>@foreach($grupos as $item)<option value="{{ $item->id }}" @selected(old('grupo_comercial_id',$venta->grupo_comercial_id)==$item->id)>{{ $item->nombre }}</option>@endforeach</select></div>
+<div class="field"><label>Supervisor comercial</label><select name="supervisor_comercial_id"><option value="">Sin asignar</option>@foreach($supervisoresComerciales as $item)<option value="{{ $item->id }}" @selected(old('supervisor_comercial_id',$venta->supervisor_comercial_id)==$item->id)>{{ $item->name }}</option>@endforeach</select></div>
+<div class="field"><label>Supervisor de ventas</label><select name="supervisor_ventas_id"><option value="">Sin asignar</option>@foreach($supervisoresVentas as $item)<option value="{{ $item->id }}" @selected(old('supervisor_ventas_id',$venta->supervisor_ventas_id)==$item->id)>{{ $item->name }}</option>@endforeach</select></div>
+<div class="field"><label>Vendedor</label><select name="vendedor_id"><option value="">Sin asignar</option>@foreach($vendedores as $item)<option value="{{ $item->id }}" @selected(old('vendedor_id',$venta->vendedor_id)==$item->id)>{{ $item->name }}</option>@endforeach</select></div>
+@endif
 <label style="display:flex;gap:8px;align-items:center;margin-top:30px;"><input type="checkbox" name="admin_confirma_reserva" value="1" style="width:auto;"> Confirmacion administrativa para lote reservado a otro cliente</label>
 <div class="field full"><label>Observaciones</label><textarea name="observaciones">{{ old('observaciones', $venta->observaciones) }}</textarea></div>
 <div class="field full"><button class="btn">Guardar</button></div>

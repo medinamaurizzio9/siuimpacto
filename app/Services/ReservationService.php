@@ -13,7 +13,8 @@ class ReservationService
     public function __construct(
         private LotService $lotService,
         private CashMovementService $cashMovementService,
-        private AuditService $auditService
+        private AuditService $auditService,
+        private CommercialAccessService $commercialAccess
     ) {
     }
 
@@ -21,6 +22,10 @@ class ReservationService
     {
         return DB::transaction(function () use ($data, $user): Reserva {
             $lote = Lote::lockForUpdate()->findOrFail($data['lote_id']);
+            $lote->loadMissing('manzano');
+            if ($user) {
+                $this->commercialAccess->ensureCanAccessLote($user, $lote);
+            }
 
             if ($lote->estado === 'vendido') {
                 throw ValidationException::withMessages(['lote_id' => 'Este lote ya se encuentra vendido.']);
@@ -37,6 +42,8 @@ class ReservationService
             $reserva = Reserva::create([
                 ...$data,
                 'usuario_id' => $user?->id,
+                'urbanizacion_id' => $lote->manzano->urbanizacion_id,
+                ...($user ? $this->commercialAccess->hierarchyFor($user, $data) : []),
                 'estado' => 'activa',
             ]);
             $this->auditService->log($reserva, 'crear_reserva', 'Reserva creada.', null, $reserva->toArray());

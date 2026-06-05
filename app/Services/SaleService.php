@@ -15,7 +15,8 @@ class SaleService
         private LotService $lotService,
         private InstallmentService $installmentService,
         private CashMovementService $cashMovementService,
-        private AuditService $auditService
+        private AuditService $auditService,
+        private CommercialAccessService $commercialAccess
     ) {
     }
 
@@ -23,6 +24,10 @@ class SaleService
     {
         return DB::transaction(function () use ($data, $user): Venta {
             $lote = Lote::with('reservaActiva')->lockForUpdate()->findOrFail($data['lote_id']);
+            $lote->loadMissing('manzano');
+            if ($user) {
+                $this->commercialAccess->ensureCanAccessLote($user, $lote);
+            }
             $this->lotService->ensureCanSell($lote, (int) $data['cliente_id'], (bool) ($data['admin_confirma_reserva'] ?? false));
 
             $reserva = $lote->reservaActiva;
@@ -30,9 +35,16 @@ class SaleService
                 $data['reserva_id'] = $reserva->id;
             }
 
+            $hierarchy = $user ? $this->commercialAccess->hierarchyFor($user, $data) : [];
             $venta = Venta::create([
                 ...$data,
                 'user_id' => $user?->id,
+                'urbanizacion_id' => $lote->manzano->urbanizacion_id,
+                ...$hierarchy,
+                'usuario_creador_id' => $user?->id,
+                'usuario_actualizador_id' => $user?->id,
+                'tipo_venta' => ((int) ($data['numero_cuotas'] ?? 0)) > 0 ? 'credito' : 'contado',
+                'monto_total' => $data['precio_final'],
             ]);
             $this->auditService->log($venta, 'crear_venta', 'Venta registrada.', null, $venta->toArray());
 

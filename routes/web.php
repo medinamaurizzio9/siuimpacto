@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CommercialSettingController;
+use App\Http\Controllers\CommercialReportController;
 use App\Http\Controllers\CuotaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExportController;
@@ -54,7 +55,9 @@ Route::middleware('auth')->group(function (): void {
         Route::resource('supervisores', SupervisorController::class)->parameters(['supervisores' => 'supervisor'])->except('show')->middleware('can:administrar usuarios');
         Route::get('/grupos-comerciales/excel', [GrupoComercialController::class, 'excel'])->middleware('can:exportar reportes')->name('grupos-comerciales.excel');
         Route::get('/grupos-comerciales/pdf', [GrupoComercialController::class, 'pdf'])->middleware('can:exportar reportes')->name('grupos-comerciales.pdf');
-        Route::resource('grupos-comerciales', GrupoComercialController::class)->parameters(['grupos-comerciales' => 'grupoComercial'])->except('show')->middlewareFor(['index'], 'can:editar asesores')->middlewareFor(['create', 'store', 'edit', 'update', 'destroy'], 'can:administrar usuarios');
+        Route::get('/grupos-comerciales/{grupoComercial}/asignaciones', [GrupoComercialController::class, 'assignments'])->middleware('can:asignar urbanizaciones a grupos')->name('grupos-comerciales.asignaciones');
+        Route::put('/grupos-comerciales/{grupoComercial}/asignaciones', [GrupoComercialController::class, 'updateAssignments'])->middleware('can:asignar urbanizaciones a grupos')->name('grupos-comerciales.asignaciones.update');
+        Route::resource('grupos-comerciales', GrupoComercialController::class)->parameters(['grupos-comerciales' => 'grupoComercial'])->middlewareFor(['index', 'show'], 'can:ver ventas')->middlewareFor(['create', 'store', 'edit', 'update', 'destroy'], 'can:administrar usuarios');
 
         Route::middleware(['urbanizacion.selected', 'urbanizacion.access'])->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->middleware('can:ver dashboard')->name('dashboard');
@@ -94,6 +97,9 @@ Route::middleware('auth')->group(function (): void {
             Route::get('/mejor-vendedor', [ReportController::class, 'mejorVendedor'])->middleware('can:ver reporte mejor vendedor')->name('mejor-vendedor');
             Route::get('/mejor-vendedor/excel', [ReportController::class, 'mejorVendedorExcel'])->middleware('can:exportar reporte mejor vendedor')->name('mejor-vendedor.excel');
             Route::get('/mejor-vendedor/pdf', [ReportController::class, 'mejorVendedorPdf'])->middleware('can:exportar reporte mejor vendedor')->name('mejor-vendedor.pdf');
+            Route::get('/comercial', [CommercialReportController::class, 'index'])->middleware('can:ver reporte comercial')->name('comercial');
+            Route::get('/comercial/excel', [CommercialReportController::class, 'excel'])->middleware('can:exportar reporte comercial')->name('comercial.excel');
+            Route::get('/comercial/pdf', [CommercialReportController::class, 'pdf'])->middleware('can:exportar reporte comercial')->name('comercial.pdf');
             Route::get('/exportaciones', [ReportController::class, 'exportaciones'])->name('exportaciones');
             Route::get('/{reporte}/csv', [ReportController::class, 'csv'])->middleware('can:exportar reportes')->name('csv');
         });

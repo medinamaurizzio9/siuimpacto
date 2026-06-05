@@ -12,8 +12,13 @@ class Reserva extends Model
 
     protected $fillable = [
         'cliente_id',
+        'urbanizacion_id',
         'lote_id',
         'usuario_id',
+        'vendedor_id',
+        'supervisor_ventas_id',
+        'supervisor_comercial_id',
+        'grupo_comercial_id',
         'fecha_reserva',
         'fecha_vencimiento',
         'monto_reserva',
@@ -48,5 +53,30 @@ class Reserva extends Model
     public function cashMovements(): HasMany
     {
         return $this->hasMany(CashMovement::class, 'reservation_id');
+    }
+
+    public function urbanizacion(): BelongsTo
+    {
+        return $this->belongsTo(Urbanizacion::class);
+    }
+
+    public function vendedor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'vendedor_id');
+    }
+
+    public function supervisorVentas(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_ventas_id');
+    }
+
+    public function supervisorComercial(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_comercial_id');
+    }
+
+    public function grupoComercial(): BelongsTo
+    {
+        return $this->belongsTo(GrupoComercial::class);
     }
 }

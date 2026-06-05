@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SupervisorProfile;
 use App\Models\User;
+use App\Models\GrupoComercial;
 use App\Services\AuditService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
@@ -19,13 +20,13 @@ class SupervisorController extends Controller
     public function index(): View
     {
         return view('supervisores.index', [
-            'supervisores' => SupervisorProfile::with('user')->latest()->paginate(15),
+            'supervisores' => SupervisorProfile::with('user', 'supervisorComercial', 'grupo')->latest()->paginate(15),
         ]);
     }
 
     public function create(): View
     {
-        return view('supervisores.form', ['supervisor' => new SupervisorProfile(['activo' => true])]);
+        return view('supervisores.form', $this->formData(new SupervisorProfile(['activo' => true, 'tipo' => 'supervisor_comercial'])));
     }
 
     public function store(Request $request, AuditService $auditService): RedirectResponse
@@ -39,13 +40,16 @@ class SupervisorController extends Controller
                 'password' => Hash::make($data['ci']),
                 'must_change_password' => true,
             ]);
-            $user->assignRole('supervisor');
+            $user->assignRole([$data['tipo'] === 'supervisor_ventas' ? 'supervisor ventas' : 'supervisor comercial', 'supervisor']);
 
             $supervisor = SupervisorProfile::create([
                 ...$data,
                 'user_id' => $user->id,
                 'activo' => $request->boolean('activo'),
             ]);
+            if (! empty($data['grupo_comercial_id'])) {
+                $user->gruposComerciales()->syncWithoutDetaching([$data['grupo_comercial_id'] => ['tipo' => $data['tipo'], 'activo' => true]]);
+            }
             $auditService->log($supervisor, 'crear_supervisor', 'Supervisor comercial creado con usuario de sistema.', null, $supervisor->toArray(), $request);
 
             return $supervisor;
@@ -56,7 +60,7 @@ class SupervisorController extends Controller
 
     public function edit(SupervisorProfile $supervisor): View
     {
-        return view('supervisores.form', ['supervisor' => $supervisor]);
+        return view('supervisores.form', $this->formData($supervisor));
     }
 
     public function update(Request $request, SupervisorProfile $supervisor, AuditService $auditService): RedirectResponse
@@ -67,6 +71,10 @@ class SupervisorController extends Controller
         DB::transaction(function () use ($request, $supervisor, $data, $auditService, $before): void {
             $supervisor->update([...$data, 'activo' => $request->boolean('activo')]);
             $supervisor->user->update(['name' => $data['nombre'], 'email' => $data['email']]);
+            $supervisor->user->syncRoles([$data['tipo'] === 'supervisor_ventas' ? 'supervisor ventas' : 'supervisor comercial', 'supervisor']);
+            if (! empty($data['grupo_comercial_id'])) {
+                $supervisor->user->gruposComerciales()->sync([$data['grupo_comercial_id'] => ['tipo' => $data['tipo'], 'activo' => true]]);
+            }
             $auditService->log($supervisor, 'editar_supervisor', 'Supervisor comercial actualizado.', $before, $supervisor->fresh()->toArray(), $request);
         });
 
@@ -97,13 +105,29 @@ class SupervisorController extends Controller
 
     private function validated(Request $request, ?SupervisorProfile $supervisor = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
             'ci' => ['required', 'string', 'max:50', Rule::unique('supervisor_profiles', 'ci')->ignore($supervisor)],
             'celular' => ['nullable', 'string', 'max:50'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($supervisor?->user_id)],
             'direccion' => ['nullable', 'string', 'max:255'],
+            'tipo' => ['nullable', 'in:supervisor_comercial,supervisor_ventas'],
+            'supervisor_comercial_id' => ['nullable', 'exists:users,id'],
+            'grupo_comercial_id' => ['nullable', 'exists:grupos_comerciales,id'],
             'activo' => ['nullable', 'boolean'],
         ]);
+
+        $data['tipo'] ??= $supervisor?->tipo ?? 'supervisor_comercial';
+
+        return $data;
+    }
+
+    private function formData(SupervisorProfile $supervisor): array
+    {
+        return [
+            'supervisor' => $supervisor,
+            'supervisoresComerciales' => User::role('supervisor comercial')->orderBy('name')->get(),
+            'grupos' => GrupoComercial::where('activo', true)->orderBy('nombre')->get(),
+        ];
     }
 }

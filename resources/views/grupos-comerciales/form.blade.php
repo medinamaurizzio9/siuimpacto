@@ -7,6 +7,7 @@
     <div class="field"><label>Nombre</label><input name="nombre" value="{{ old('nombre', $grupo->nombre) }}" required></div>
     <div class="field"><label>Supervisor</label><select name="supervisor_id"><option value="">Sin supervisor</option>@foreach($supervisores as $supervisor)<option value="{{ $supervisor->id }}" @selected(old('supervisor_id', $grupo->supervisor_id) == $supervisor->id)>{{ $supervisor->name }}</option>@endforeach</select></div>
     <div class="field full"><label>Descripcion</label><textarea name="descripcion">{{ old('descripcion', $grupo->descripcion) }}</textarea></div>
+    <div class="field full"><label>Observaciones</label><textarea name="observaciones">{{ old('observaciones', $grupo->observaciones) }}</textarea></div>
     <label class="check-row"><input type="checkbox" name="activo" value="1" @checked(old('activo', $grupo->activo ?? true))> Activo</label>
     <div class="field full"><button class="btn" type="submit">Guardar grupo</button></div>
 </form>

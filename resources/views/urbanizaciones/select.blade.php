@@ -9,7 +9,7 @@
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
 @if ($errors->any()) <div class="errors">{{ $errors->first() }}</div> @endif
 
-<div class="project-grid">
+<div class="grid-urbanizaciones project-grid">
     @forelse($urbanizaciones as $urbanizacion)
         <article class="project-card">
             @if($urbanizacion->plano_imagen)

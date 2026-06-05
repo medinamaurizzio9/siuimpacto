@@ -1,8 +1,11 @@
 @php
     $user = auth()->user();
-    $isAdmin = $user?->hasRole('administrador');
+    $isSuperAdmin = $user?->hasRole('super administrador');
+    $isAdmin = $user?->hasAnyRole(['super administrador', 'administrador']);
     $isGerente = $user?->hasRole('gerente');
-    $isSupervisor = $user?->hasRole('supervisor');
+    $isSupervisorComercial = $user?->hasRole('supervisor comercial');
+    $isSupervisorVentas = $user?->hasAnyRole(['supervisor ventas', 'supervisor']);
+    $isSupervisor = $isSupervisorComercial || $isSupervisorVentas;
     $isVendedor = $user?->hasRole('vendedor');
     $isCliente = $user?->hasRole('cliente');
     $hasProject = (bool) $urbanizacionActual || $isCliente;
@@ -115,6 +118,7 @@
                     <a @class(['sidebar-link', 'active' => $active('reportes.ingresos')]) href="{{ route('reportes.ingresos') }}">Ingresos</a>
                     <a @class(['sidebar-link', 'active' => $active('reportes.estado-cuenta')]) href="{{ route('reportes.estado-cuenta') }}">Estado de cuenta</a>
                     @can('exportar reportes')<a @class(['sidebar-link', 'active' => $active('reportes.exportaciones')]) href="{{ route('reportes.exportaciones') }}">Exportaciones</a>@endcan
+                    @can('ver reporte comercial')<a @class(['sidebar-link', 'active' => $active('reportes.comercial')]) href="{{ route('reportes.comercial') }}">Reporte comercial</a>@endcan
                 </div>
             </div>
         @endif
@@ -128,7 +132,7 @@
                     @if($isAdmin)
                         <a @class(['sidebar-link', 'active' => $active('supervisores.*')]) href="{{ route('supervisores.index') }}">Supervisores</a>
                         <a @class(['sidebar-link', 'active' => $active('grupos-comerciales.*')]) href="{{ route('grupos-comerciales.index') }}">Grupos comerciales</a>
-                    @elseif($isSupervisor)
+                    @elseif($isSupervisorComercial || $isSupervisorVentas)
                         <a @class(['sidebar-link', 'active' => $active('grupos-comerciales.*')]) href="{{ route('grupos-comerciales.index') }}">Mis grupos</a>
                     @endif
                     @can('asignar urbanizaciones a asesores')<a @class(['sidebar-link', 'active' => $active('urbanizaciones.asignaciones')]) href="{{ route('urbanizaciones.asignaciones') }}">Asignar urbanizaciones</a>@endcan

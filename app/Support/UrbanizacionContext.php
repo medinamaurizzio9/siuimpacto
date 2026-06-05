@@ -10,6 +10,7 @@ use App\Models\Reserva;
 use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Models\Venta;
+use App\Services\CommercialAccessService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -29,31 +30,14 @@ class UrbanizacionContext
 
     public static function accessibleUrbanizaciones(User $user): Collection
     {
-        $query = Urbanizacion::query()->where('estado', 'activa')->orderBy('nombre');
+        $ids = app(CommercialAccessService::class)->accessibleUrbanizacionIds($user);
 
-        if ($user->hasAnyRole(['vendedor', 'supervisor'])) {
-            $query->whereHas('asesores', fn (Builder $builder) => $builder
-                ->where('users.id', $user->id)
-                ->where('urbanizacion_user.activo', true));
-        }
-
-        return $query->get();
+        return Urbanizacion::where('estado', 'activa')->whereIn('id', $ids)->orderBy('nombre')->get();
     }
 
     public static function userCanAccess(User $user, int $urbanizacionId): bool
     {
-        if ($user->hasAnyRole(['administrador', 'gerente'])) {
-            return Urbanizacion::whereKey($urbanizacionId)->where('estado', 'activa')->exists();
-        }
-
-        if ($user->hasAnyRole(['vendedor', 'supervisor'])) {
-            return $user->urbanizacionesAsignadas()
-                ->where('urbanizaciones.id', $urbanizacionId)
-                ->where('urbanizaciones.estado', 'activa')
-                ->exists();
-        }
-
-        return false;
+        return app(CommercialAccessService::class)->canAccessUrbanizacion($user, $urbanizacionId);
     }
 
     public static function lotes(Builder $query, ?int $urbanizacionId = null): Builder

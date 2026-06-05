@@ -11,6 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Permission\Traits\HasRoles;
 
 #[Hidden(['password', 'remember_token'])]
@@ -62,5 +63,17 @@ class User extends Authenticatable
     public function supervisorProfile(): HasOne
     {
         return $this->hasOne(SupervisorProfile::class);
+    }
+
+    public function gruposComerciales(): BelongsToMany
+    {
+        return $this->belongsToMany(GrupoComercial::class, 'grupo_comercial_user')
+            ->withPivot(['tipo', 'activo'])
+            ->withTimestamps();
+    }
+
+    public function gruposResponsables(): HasMany
+    {
+        return $this->hasMany(GrupoComercial::class, 'supervisor_id');
     }
 }

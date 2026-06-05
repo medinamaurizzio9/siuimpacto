@@ -44,4 +44,11 @@ class Urbanizacion extends Model
             ->withPivot('activo')
             ->withTimestamps();
     }
+
+    public function gruposComerciales(): BelongsToMany
+    {
+        return $this->belongsToMany(GrupoComercial::class, 'grupo_comercial_urbanizacion')
+            ->withPivot('activo')
+            ->withTimestamps();
+    }
 }
