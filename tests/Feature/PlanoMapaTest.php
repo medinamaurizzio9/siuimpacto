@@ -225,8 +225,15 @@ class PlanoMapaTest extends TestCase
         $this->assertStringContainsString('.lot-point {', $css);
         $this->assertStringContainsString('position: absolute;', $css);
         $this->assertStringContainsString('transform: translate(-50%, -50%)', $css);
+        $this->assertStringContainsString('inline-size: clamp(8px, 1.4vw, 22px)', $css);
+        $this->assertStringContainsString('inline-size: clamp(6px, 2vw, 16px)', $css);
+        $this->assertStringNotContainsString('--lot-point-size: 28px', $css);
         $this->assertStringNotContainsString('scale(calc', $css);
         $this->assertStringNotContainsString('scale(var(--', $css);
+
+        $javascript = file_get_contents(public_path('js/map-zoom.js'));
+        $this->assertStringContainsString('layer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`', $javascript);
+        $this->assertStringNotContainsString('point.style.transform', $javascript);
     }
 
     public function test_publico_puede_ver_mapa_responsive_sin_autenticacion(): void

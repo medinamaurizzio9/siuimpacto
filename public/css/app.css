@@ -123,12 +123,12 @@ textarea { min-height: 90px; resize: vertical; }
 .plan-map-viewport.panning { cursor: grabbing; }
 .plan-map-viewport.editing { cursor: crosshair; outline: 3px solid #0f766e; }
 .map-modal-open .plan-map-viewport { pointer-events: none; }
-.plan-map-layer { position: relative; width: 100%; transform-origin: 0 0; will-change: transform; transition: transform .12s ease-out; --lot-point-size: 28px; --lot-point-border: 3px; --lot-point-font-size: 11px; }
+.plan-map-layer { position: relative; width: 100%; transform-origin: 0 0; will-change: transform; transition: transform .12s ease-out; }
 .plan-map-image { display: block; width: 100%; height: auto; user-select: none; pointer-events: none; }
 .edit-panel { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 14px; align-items: end; border: 1px solid #dce4e8; border-radius: 8px; padding: 14px; margin-bottom: 14px; background: #f8fafb; }
 .edit-panel[hidden] { display: none; }
 .map-point,
-.lot-point { position: absolute; inline-size: var(--lot-point-size); block-size: var(--lot-point-size); transform: translate(-50%, -50%); transform-origin: center; border: var(--lot-point-border) solid #fff; border-radius: 999px; box-shadow: 0 3px 10px rgba(0,0,0,.25); cursor: pointer; padding: 0; color: #fff; font-size: var(--lot-point-font-size); font-weight: 800; z-index: 2; display: inline-grid; place-items: center; }
+.lot-point { position: absolute; inline-size: clamp(8px, 1.4vw, 22px); block-size: clamp(8px, 1.4vw, 22px); transform: translate(-50%, -50%); transform-origin: center; border: clamp(1px, .16vw, 2px) solid #fff; border-radius: 999px; box-shadow: 0 3px 10px rgba(0,0,0,.25); cursor: pointer; padding: 0; color: #fff; font-size: clamp(6px, .7vw, 11px); font-weight: 800; z-index: 2; display: inline-grid; place-items: center; }
 .map-point span,
 .lot-point span { display: block; line-height: 1; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
 .plan-map-layer.zoom-labels-hidden .lot-point span { display: none; }
@@ -196,4 +196,8 @@ textarea { min-height: 90px; resize: vertical; }
     .map-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .map-zoom-controls { left: 10px; right: 10px; top: 10px; }
     .map-zoom-controls .btn { flex: 1 1 42px; }
+}
+@media (max-width: 768px) {
+    .map-point,
+    .lot-point { inline-size: clamp(6px, 2vw, 16px); block-size: clamp(6px, 2vw, 16px); font-size: clamp(5px, 1vw, 9px); border-width: clamp(1px, .2vw, 2px); }
 }
