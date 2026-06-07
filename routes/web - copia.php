@@ -105,44 +105,16 @@ Route::middleware('auth')->group(function (): void {
             Route::get('/{reporte}/csv', [ReportController::class, 'csv'])->middleware('can:exportar reportes')->name('csv');
         });
         Route::middleware('can:administrar usuarios')->prefix('administracion')->name('admin.')->group(function (): void {
-    Route::get('/usuarios', function () {
-        $users = \App\Models\User::with('roles')
-            ->orderBy('id')
-            ->paginate(15);
-
-        return view('administracion.usuarios.index', compact('users'));
-    })->name('usuarios');
-
-    Route::get('/roles-permisos', function () {
-        $roles = \Spatie\Permission\Models\Role::with('permissions')
-            ->orderBy('name')
-            ->get();
-
-        $permissions = \Spatie\Permission\Models\Permission::orderBy('name')->get();
-
-        return view('administracion.roles.index', compact('roles', 'permissions'));
-    })->name('roles');
-
-    Route::get('/configuracion-general', [SystemSettingController::class, 'edit'])->name('configuracion-general');
-    Route::put('/configuracion-general', [SystemSettingController::class, 'update'])->name('configuracion-general.update');
-
-    Route::get('/configuracion-comercial', [CommercialSettingController::class, 'edit'])->name('configuracion');
-    Route::put('/configuracion-comercial', [CommercialSettingController::class, 'update'])->name('configuracion.update');
-
-    Route::get('/auditoria', function () {
-        $audits = \Illuminate\Support\Facades\DB::table('audit_logs')
-            ->latest('created_at')
-            ->paginate(15);
-
-        return view('administracion.auditoria.index', compact('audits'));
-    })->name('auditoria');
-
-    Route::get('/backups', function () {
-        return view('administracion.backups.index');
-    })->name('backups');
-});
+            Route::view('/usuarios', 'admin.simple', ['title' => 'Usuarios', 'description' => 'Administracion de usuarios del sistema.'])->name('usuarios');
+            Route::view('/roles-permisos', 'admin.simple', ['title' => 'Roles y permisos', 'description' => 'Configuracion de roles y permisos.'])->name('roles');
+            Route::get('/configuracion-general', [SystemSettingController::class, 'edit'])->name('configuracion-general');
+            Route::put('/configuracion-general', [SystemSettingController::class, 'update'])->name('configuracion-general.update');
+            Route::get('/configuracion-comercial', [CommercialSettingController::class, 'edit'])->name('configuracion');
+            Route::put('/configuracion-comercial', [CommercialSettingController::class, 'update'])->name('configuracion.update');
+            Route::view('/auditoria', 'admin.simple', ['title' => 'Auditoria', 'description' => 'Revision de operaciones importantes registradas.'])->name('auditoria');
+            Route::view('/backups', 'admin.simple', ['title' => 'Backups', 'description' => 'Respaldo manual de la base de datos.'])->name('backups');
         });
         Route::get('/exportar/{tipo}', ExportController::class)->middleware('can:exportar reportes')->name('export.csv');
-       
-});
+        });
+    });
 });
