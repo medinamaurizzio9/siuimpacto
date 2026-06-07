@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{font-family:DejaVu Sans,sans-serif;font-size:11px;color:#17202a}.header{display:table;width:100%;border-bottom:3px solid {{ $settings['primary_color'] ?? '#0f766e' }};padding-bottom:10px;margin-bottom:16px}.logo{display:table-cell;width:85px}.logo img{max-width:75px;max-height:70px}.company{display:table-cell;vertical-align:top}.system-name{font-size:18px;font-weight:bold}.muted{color:#59666c}.title{font-size:17px;margin:14px 0 8px}.table{width:100%;border-collapse:collapse}.table th,.table td{border:1px solid #d7dee2;padding:6px}.table th{background:#eef3f4}.footer{border-top:1px solid #ddd;margin-top:18px;padding-top:8px;text-align:center;color:#555}
+</style></head><body>
+@include('pdf.partials.client-header')
+<h1 class="title">Historial de reservas - {{ $cliente->nombre }}</h1>
+<p><strong>Documento:</strong> {{ $cliente->documento }} | <strong>Urbanizacion:</strong> {{ $cliente->urbanizacion?->nombre }}</p>
+<table class="table"><thead><tr><th>Lote</th><th>Estado</th><th>Fecha reserva</th><th>Fecha vencimiento</th><th>Monto reserva</th><th>Tipo operacion</th><th>Asesor</th></tr></thead><tbody>@forelse($cliente->reservas as $reserva)<tr><td>{{ $reserva->lote->manzano->codigo }}-{{ $reserva->lote->codigo }}</td><td>{{ $reserva->estado }}</td><td>{{ $reserva->fecha_reserva?->format('d/m/Y') }}</td><td>{{ $reserva->fecha_vencimiento?->format('d/m/Y') }}</td><td>{{ number_format($reserva->monto_reserva, 2) }}</td><td>{{ $reserva->tipo_operacion }}</td><td>{{ $reserva->usuario?->name }}</td></tr>@empty<tr><td colspan="7">Sin reservas registradas.</td></tr>@endforelse</tbody></table>
+<div class="footer">{{ $settings['footer_text'] ?? '' }}</div></body></html>

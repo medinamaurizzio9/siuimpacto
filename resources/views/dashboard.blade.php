@@ -44,6 +44,7 @@
     <div class="card metric reservado"><div class="muted">Reservados</div><div class="stat-value">{{ $lotesReservados }}</div></div>
     <div class="card metric"><div class="muted">Ingresos del dia</div><div class="stat-value">{{ number_format($ingresosDia, 2) }}</div></div>
     <div class="card metric"><div class="muted">Ingresos del mes</div><div class="stat-value">{{ number_format($ingresosMes, 2) }}</div></div>
+    <div class="card metric"><div class="muted">Monto vendido</div><div class="stat-value">{{ number_format($montoVendido, 2) }}</div></div>
 </div>
 
 <div class="grid dashboard-grid">

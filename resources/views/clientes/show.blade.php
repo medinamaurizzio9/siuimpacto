@@ -2,10 +2,20 @@
 @section('content')
 <div class="topbar">
     <h1 class="title">Cliente</h1>
-    <div class="actions">
+    <div class="actions no-print">
+        <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
+        <a class="btn secondary" href="{{ route('clientes.pdf', $cliente) }}">PDF ficha cliente</a>
+        <a class="btn secondary" href="{{ route('clientes.estado-cuenta.pdf', $cliente) }}">PDF estado de cuenta</a>
+        <a class="btn secondary" href="{{ route('clientes.reservas.pdf', $cliente) }}">PDF reservas</a>
         <a class="btn secondary" href="{{ route('clientes.index') }}">Volver</a>
         @can('editar clientes')<a class="btn" href="{{ route('clientes.edit', $cliente) }}">Editar</a>@endcan
     </div>
+</div>
+
+<div class="grid stats" style="margin-top:18px;">
+    <div class="card metric"><strong>Total vendido</strong><div class="stat-value">{{ number_format($cliente->ventas->where('estado', '!=', 'anulada')->sum('precio_final'), 2) }}</div></div>
+    <div class="card metric"><strong>Total pagado en cuotas</strong><div class="stat-value">{{ number_format($cliente->ventas->flatMap->cuotas->sum('monto_pagado'), 2) }}</div></div>
+    <div class="card metric"><strong>Saldo pendiente</strong><div class="stat-value">{{ number_format($cliente->ventas->flatMap->cuotas->sum('saldo_pendiente'), 2) }}</div></div>
 </div>
 
 <div class="card">

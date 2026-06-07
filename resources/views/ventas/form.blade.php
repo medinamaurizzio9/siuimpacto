@@ -10,11 +10,14 @@
 <div class="field"><label>Precio final</label><input name="precio_final" type="number" step="0.01" value="{{ old('precio_final', $venta->precio_final ?? 0) }}"></div>
 <div class="field"><label>Cuota inicial</label><input name="cuota_inicial" type="number" step="0.01" value="{{ old('cuota_inicial', $venta->cuota_inicial ?? 0) }}"></div>
 <div class="field"><label>Numero cuotas</label><input name="numero_cuotas" type="number" value="{{ old('numero_cuotas', $venta->numero_cuotas ?? 12) }}"></div>
-<div class="field"><label>Metodo de pago</label><select name="metodo_pago">@foreach(['efectivo','transferencia','QR','banco','otro'] as $metodo)<option @selected(old('metodo_pago', 'efectivo') === $metodo)>{{ $metodo }}</option>@endforeach</select></div>
-<div class="field"><label>Referencia</label><input name="referencia" value="{{ old('referencia') }}"></div>
-<div class="field"><label>Estado</label><select name="estado">@foreach(['activa','completada','anulada'] as $estado)<option @selected(old('estado', $venta->estado ?? 'activa') === $estado)>{{ $estado }}</option>@endforeach</select></div>
+<div class="field"><label>Metodo de pago</label><select name="metodo_pago">@foreach(['efectivo','transferencia','QR','banco','otro'] as $metodo)<option @selected(old('metodo_pago', $initialMovement?->metodo_pago ?? 'efectivo') === $metodo)>{{ $metodo }}</option>@endforeach</select></div>
+<div class="field"><label>Referencia</label><input name="referencia" value="{{ old('referencia', $initialMovement?->referencia) }}"></div>
+<div class="field"><label>Estado</label><select name="estado">@foreach($venta->estado === 'anulada' ? ['anulada'] : ['activa','completada'] as $estado)<option @selected(old('estado', $venta->estado ?? 'activa') === $estado)>{{ $estado }}</option>@endforeach</select></div>
 <label style="display:flex;gap:8px;align-items:center;margin-top:30px;"><input type="checkbox" name="admin_confirma_reserva" value="1" style="width:auto;"> Confirmacion administrativa para lote reservado a otro cliente</label>
 <div class="field full"><label>Observaciones</label><textarea name="observaciones">{{ old('observaciones', $venta->observaciones) }}</textarea></div>
+@if($venta->exists)
+<div class="field full"><label>Motivo del cambio</label><textarea name="motivo_cambio" required placeholder="Explique el motivo del cambio de esta venta">{{ old('motivo_cambio') }}</textarea></div>
+@endif
 <div class="field full"><button class="btn">Guardar</button></div>
 </form>
 @endsection

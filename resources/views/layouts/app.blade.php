@@ -11,7 +11,7 @@
 @auth
     <div class="shell">
         @include('layouts.partials.sidebar')
-        <main class="main">
+        <main class="main main-content">
             @yield('content')
             <footer class="footer">{{ $systemSettings['footer_text'] ?? 'Version piloto - MVP funcional.' }}</footer>
         </main>

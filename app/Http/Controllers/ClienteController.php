@@ -92,7 +92,7 @@ class ClienteController extends Controller
     {
         abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');
 
-        $cliente->load('createdBy', 'urbanizacion', 'ventas.lote.manzano', 'reservas.lote.manzano');
+        $cliente->load('createdBy', 'urbanizacion', 'ventas.lote.manzano', 'ventas.cuotas', 'reservas.lote.manzano');
 
         return view('clientes.show', compact('cliente'));
     }

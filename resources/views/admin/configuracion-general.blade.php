@@ -22,11 +22,13 @@
     <div class="field"><label>Pie de pagina</label><input name="footer_text" value="{{ old('footer_text', $settings['footer_text']) }}"></div>
     <div class="field"><label>Color principal</label><input type="color" name="primary_color" value="{{ old('primary_color', $settings['primary_color']) }}"></div>
     <div class="field"><label>Color secundario</label><input type="color" name="secondary_color" value="{{ old('secondary_color', $settings['secondary_color']) }}"></div>
-    @foreach(['logo_main' => 'Logo principal', 'logo_login' => 'Logo para login', 'logo_pdf' => 'Logo para PDF'] as $key => $label)
-        <div class="field">
+    @foreach(['logo_main' => 'Logo principal', 'logo_login' => 'Logo para login', 'login_background' => 'Imagen fondo login', 'logo_pdf' => 'Logo para PDF'] as $key => $label)
+        <div class="field image-setting">
             <label>{{ $label }}</label>
             @if($settings[$key])
-                <img src="{{ asset('storage/'.$settings[$key]) }}" alt="{{ $label }}" style="max-height:70px;display:block;margin-bottom:8px;">
+                <div class="setting-image-preview @if($key === 'login_background') background-preview @endif">
+                    <img src="{{ asset('storage/'.$settings[$key]) }}" alt="{{ $label }}">
+                </div>
             @endif
             <input type="file" name="{{ $key }}" accept="image/jpeg,image/png,image/webp">
         </div>

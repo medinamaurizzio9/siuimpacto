@@ -11,10 +11,19 @@ use Illuminate\View\View;
 
 class ManzanoController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $query = Manzano::withCount('lotes')
+            ->where('urbanizacion_id', UrbanizacionContext::currentId())
+            ->when($request->filled('buscar'), function ($query) use ($request) {
+                $buscar = '%'.$request->string('buscar')->trim().'%';
+
+                $query->where(fn ($query) => $query->where('codigo', 'like', $buscar)->orWhere('nombre', 'like', $buscar));
+            });
+
         return view('manzanos.index', [
-            'manzanos' => Manzano::with('urbanizacion')->withCount('lotes')->where('urbanizacion_id', UrbanizacionContext::currentId())->orderBy('codigo')->paginate(15),
+            'urbanizacion' => UrbanizacionContext::current(),
+            'manzanos' => $query->orderBy('codigo')->paginate(15)->appends($request->query()),
         ]);
     }
 

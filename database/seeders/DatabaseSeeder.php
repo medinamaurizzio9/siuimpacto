@@ -48,10 +48,14 @@ class DatabaseSeeder extends Seeder
             'eliminar clientes',
             'crear ventas',
             'editar ventas',
+            'editar ventas anuladas',
             'anular ventas',
             'crear reservas',
             'editar reservas',
             'cancelar reservas',
+            'ver recibo reserva',
+            'descargar recibo reserva',
+            'imprimir recibo reserva',
             'cobrar cuotas',
             'convertir reservas',
             'ver reservas equipo',
@@ -87,8 +91,8 @@ class DatabaseSeeder extends Seeder
 
         $administrador->syncPermissions($permissions);
         $gerente->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver ventas', 'ver reservas', 'crear lotes', 'editar lotes', 'crear clientes', 'editar clientes', 'crear ventas', 'editar ventas', 'anular ventas', 'crear reservas', 'cobrar cuotas', 'anular caja', 'ver reportes', 'exportar reportes', 'ver reporte reservas', 'exportar reporte reservas', 'ver reporte mejor vendedor', 'exportar reporte mejor vendedor']);
-        $supervisor->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver ventas', 'ver reservas', 'ver reservas equipo', 'crear clientes', 'editar clientes', 'crear ventas', 'crear reservas', 'cobrar cuotas', 'crear asesores', 'editar asesores', 'desactivar asesores', 'asignar urbanizaciones a asesores', 'resetear contraseña asesor']);
-        $vendedor->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver reservas', 'crear clientes', 'editar clientes', 'crear reservas', 'cobrar cuotas']);
+        $supervisor->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver ventas', 'ver reservas', 'ver reservas equipo', 'crear clientes', 'editar clientes', 'crear ventas', 'crear reservas', 'ver recibo reserva', 'descargar recibo reserva', 'imprimir recibo reserva', 'cobrar cuotas', 'crear asesores', 'editar asesores', 'desactivar asesores', 'asignar urbanizaciones a asesores', 'resetear contraseña asesor']);
+        $vendedor->syncPermissions(['ver dashboard', 'ver lotes', 'ver clientes', 'ver reservas', 'crear clientes', 'editar clientes', 'crear reservas', 'ver recibo reserva', 'descargar recibo reserva', 'imprimir recibo reserva', 'cobrar cuotas']);
         $supervisor->givePermissionTo(['ver reportes', 'ver reporte reservas', 'exportar reporte reservas']);
 
         $admin = User::factory()->create(['name' => 'Administrador Impacto', 'email' => 'admin@impacto.test']);
@@ -184,6 +188,14 @@ class DatabaseSeeder extends Seeder
         $this->crearReservaVencida($clientes[3], $admin);
         $this->crearReservaConvertida($clientes[4], $admin);
         $this->crearVentaCreditoReciente($clientes[5], $admin);
+
+        Venta::with('cuotas')->get()->each(function (Venta $venta): void {
+            $venta->update([
+                'saldo_financiar' => (int) $venta->numero_cuotas === 0
+                    ? 0
+                    : max(0, (float) $venta->precio_final - (float) $venta->cuota_inicial - (float) $venta->cuotas->sum('monto_pagado')),
+            ]);
+        });
     }
 
     private function crearVentaContado(Cliente $cliente, User $admin): void

@@ -40,6 +40,7 @@ class SystemSettingController extends Controller
             'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'logo_main' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'logo_login' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'login_background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             'logo_pdf' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
@@ -50,6 +51,15 @@ class SystemSettingController extends Controller
         }
 
         $before = $settings->all();
+
+        if ($request->hasFile('login_background')) {
+            if (! empty($before['login_background'])) {
+                Storage::disk('public')->delete($before['login_background']);
+            }
+
+            $data['login_background'] = $request->file('login_background')->store('login-backgrounds', 'public');
+        }
+
         $settings->setMany($data);
         $auditService->log(SystemSetting::query()->first(), 'cambiar_configuracion_sistema', 'Configuracion general del sistema actualizada.', $before, $settings->all(), $request);
 

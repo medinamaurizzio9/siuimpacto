@@ -16,6 +16,7 @@ class Venta extends Model
         'fecha_venta',
         'precio_final',
         'cuota_inicial',
+        'saldo_financiar',
         'numero_cuotas',
         'estado',
         'observaciones',
@@ -25,6 +26,9 @@ class Venta extends Model
     {
         return [
             'fecha_venta' => 'date',
+            'precio_final' => 'decimal:2',
+            'cuota_inicial' => 'decimal:2',
+            'saldo_financiar' => 'decimal:2',
         ];
     }
 
@@ -60,6 +64,6 @@ class Venta extends Model
 
     public function saldo(): float
     {
-        return max(0, (float) $this->precio_final - (float) $this->cuota_inicial - (float) $this->cuotas->sum('monto_pagado'));
+        return (float) $this->saldo_financiar;
     }
 }

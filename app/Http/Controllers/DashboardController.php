@@ -44,6 +44,7 @@ class DashboardController extends Controller
             'ingresosDia' => $cashQuery()->where('tipo', 'ingreso')->where('estado', 'confirmado')->whereDate('fecha', today())->sum('monto'),
             'ingresosMes' => $cashQuery()->where('tipo', 'ingreso')->where('estado', 'confirmado')->whereBetween('fecha', [now()->startOfMonth(), now()->endOfMonth()])->sum('monto'),
             'clientes' => Cliente::count(),
+            'montoVendido' => $ventasQuery()->whereIn('estado', ['activa', 'completada'])->sum('precio_final'),
             'ventas' => $ventasQuery()->with('cliente', 'lote.manzano')->latest()->take(6)->get(),
             'cuotasVencidas' => $cuotasQuery()->whereIn('estado', ['pendiente', 'parcial', 'vencida'])->whereDate('fecha_programada', '<', now())->count(),
             'reservasVencidas' => $reservasQuery()->where('estado', 'activa')->whereDate('fecha_vencimiento', '<', now())->count(),

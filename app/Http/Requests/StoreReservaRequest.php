@@ -50,6 +50,8 @@ class StoreReservaRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'cliente_id.required' => 'Debe seleccionar un cliente válido de la lista.',
+            'cliente_id.exists' => 'Debe seleccionar un cliente válido de la lista.',
             'fecha_vencimiento.after_or_equal' => 'La fecha de vencimiento debe ser igual o posterior a la fecha de reserva.',
             'tipo_operacion.required' => 'Selecciona el tipo de operacion de la reserva.',
         ];

@@ -5,6 +5,7 @@
 <form class="form card" method="POST" enctype="multipart/form-data" action="{{ $urbanizacion->exists ? route('urbanizaciones.update', $urbanizacion) : route('urbanizaciones.store') }}">
     @csrf @if($urbanizacion->exists) @method('PUT') @endif
     <div class="field"><label>Nombre</label><input name="nombre" value="{{ old('nombre', $urbanizacion->nombre) }}" required></div>
+    <div class="field"><label>Propietario</label><input name="propietario" value="{{ old('propietario', $urbanizacion->propietario) }}"></div>
     <div class="field"><label>Ubicacion</label><input name="ubicacion" value="{{ old('ubicacion', $urbanizacion->ubicacion) }}"></div>
     <div class="field"><label>Superficie total</label><input name="superficie_total" type="number" step="0.01" value="{{ old('superficie_total', $urbanizacion->superficie_total ?? 0) }}"></div>
     <div class="field"><label>Estado</label><select name="estado">@foreach(['activa','pausada','cerrada'] as $estado)<option @selected(old('estado', $urbanizacion->estado ?? 'activa') === $estado)>{{ $estado }}</option>@endforeach</select></div>

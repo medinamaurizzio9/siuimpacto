@@ -10,7 +10,7 @@ class StoreVentaRequest extends FormRequest
     {
         return $this->isMethod('post')
             ? ($this->user()?->can('crear ventas') ?? false)
-            : ($this->user()?->can('editar ventas') ?? $this->user()?->can('crear ventas') ?? false);
+            : ($this->user()?->hasRole('administrador') && $this->user()?->can('editar ventas'));
     }
 
     public function rules(): array
@@ -20,13 +20,14 @@ class StoreVentaRequest extends FormRequest
             'cliente_id' => ['required', 'exists:clientes,id'],
             'fecha_venta' => ['required', 'date'],
             'precio_final' => ['required', 'numeric', 'min:0'],
-            'cuota_inicial' => ['nullable', 'numeric', 'min:0'],
+            'cuota_inicial' => ['nullable', 'numeric', 'min:0', 'lte:precio_final'],
             'numero_cuotas' => ['nullable', 'integer', 'min:0'],
             'estado' => ['required', 'in:activa,completada,anulada'],
             'observaciones' => ['nullable', 'string'],
             'metodo_pago' => ['nullable', 'in:efectivo,transferencia,QR,banco,otro'],
             'referencia' => ['nullable', 'string', 'max:255'],
             'admin_confirma_reserva' => ['nullable', 'boolean'],
+            'motivo_cambio' => [$this->isMethod('post') ? 'nullable' : 'required', 'string', 'max:1000'],
         ];
     }
 
@@ -36,6 +37,8 @@ class StoreVentaRequest extends FormRequest
             'lote_id.required' => 'Selecciona el lote que se vendera.',
             'cliente_id.required' => 'Selecciona el cliente comprador.',
             'precio_final.min' => 'El precio final no puede ser negativo.',
+            'cuota_inicial.lte' => 'La cuota inicial no puede superar el precio final.',
+            'motivo_cambio.required' => 'Debes explicar el motivo del cambio de esta venta.',
         ];
     }
 }

@@ -127,6 +127,39 @@ class SystemConfigurationAndCommercialStructureTest extends TestCase
             ->assertSee('Panel comercial');
     }
 
+    public function test_fondo_del_login_es_configurable_y_se_muestra_en_el_acceso(): void
+    {
+        Storage::fake('public');
+        [$admin, $urbanizacion] = $this->adminContext();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('admin.configuracion-general.update'), [
+                'system_name' => 'INMOLIDER VL CRM',
+                'system_subtitle' => 'Sistema Integral de Terrenos',
+                'primary_color' => '#123456',
+                'secondary_color' => '#654321',
+                'logo_main' => UploadedFile::fake()->image('principal.png'),
+                'logo_login' => UploadedFile::fake()->image('login.png'),
+                'login_background' => UploadedFile::fake()->image('fondo-login.webp', 1600, 900),
+            ])
+            ->assertRedirect();
+
+        $background = SystemSetting::where('key', 'login_background')->value('value');
+
+        $this->assertNotEmpty($background);
+        Storage::disk('public')->assertExists($background);
+
+        auth()->logout();
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('login-page has-background', false)
+            ->assertSee('storage/'.$background, false)
+            ->assertSee('login-card', false)
+            ->assertSee('login-logo', false);
+    }
+
     public function test_recibo_pdf_usa_datos_configurados(): void
     {
         [$admin, $urbanizacion] = $this->adminContext();

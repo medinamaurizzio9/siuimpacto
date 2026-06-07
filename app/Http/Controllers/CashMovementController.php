@@ -13,6 +13,8 @@ class CashMovementController extends Controller
 {
     public function index(): View
     {
+        abort_unless(request()->user()->hasAnyRole(['administrador', 'gerente']), 403, 'No tienes permiso para ver Caja.');
+
         return view('caja.index', [
             'movimientos' => UrbanizacionContext::cashMovements(CashMovement::with('cliente', 'venta', 'reserva', 'cuota'))->latest()->paginate(25),
         ]);

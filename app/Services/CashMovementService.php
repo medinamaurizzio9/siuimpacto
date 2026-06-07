@@ -79,6 +79,57 @@ class CashMovementService
         return CashMovement::create($data);
     }
 
+    public function syncInitialSaleMovement(Venta $venta, string $metodoPago, ?User $user, ?string $referencia, string $motivo): array
+    {
+        $venta->load('cashMovements');
+        $initialMovements = $venta->cashMovements
+            ->whereNull('installment_id')
+            ->whereIn('concepto', ['anticipo', 'contado']);
+        $concepto = (int) $venta->numero_cuotas === 0 ? 'contado' : 'anticipo';
+        $amount = (int) $venta->numero_cuotas === 0 ? (float) $venta->precio_final : (float) $venta->cuota_inicial;
+        $primary = $initialMovements->firstWhere('concepto', $concepto) ?? $initialMovements->first();
+        $changes = [];
+
+        if ($amount > 0) {
+            if ($primary) {
+                $before = $primary->toArray();
+                $primary->update([
+                    'user_id' => $user?->id,
+                    'cliente_id' => $venta->cliente_id,
+                    'concepto' => $concepto,
+                    'metodo_pago' => $metodoPago,
+                    'monto' => $amount,
+                    'referencia' => $referencia,
+                    'estado' => 'confirmado',
+                ]);
+                $this->auditService->log($primary, 'movimiento_inicial_venta_actualizado', $motivo, $before, $primary->fresh()->toArray());
+                $changes[] = ['accion' => 'actualizado', 'antes' => $before, 'despues' => $primary->fresh()->toArray()];
+            } else {
+                $primary = $this->ingresoVenta($venta, $amount, $concepto, $metodoPago, $user, $referencia);
+                $this->auditService->log($primary, 'movimiento_inicial_venta_creado', $motivo, null, $primary?->toArray());
+                $changes[] = ['accion' => 'creado', 'despues' => $primary?->toArray()];
+            }
+        }
+
+        foreach ($initialMovements->reject(fn (CashMovement $movement): bool => $primary && $movement->id === $primary->id) as $extra) {
+            if ($extra->estado !== 'anulado') {
+                $before = $extra->toArray();
+                $extra->update(['estado' => 'anulado']);
+                $this->auditService->log($extra, 'movimiento_inicial_venta_anulado', $motivo, $before, $extra->fresh()->toArray());
+                $changes[] = ['accion' => 'anulado', 'antes' => $before, 'despues' => $extra->fresh()->toArray()];
+            }
+        }
+
+        if ($amount <= 0 && $primary && $primary->estado !== 'anulado') {
+            $before = $primary->toArray();
+            $primary->update(['estado' => 'anulado']);
+            $this->auditService->log($primary, 'movimiento_inicial_venta_anulado', $motivo, $before, $primary->fresh()->toArray());
+            $changes[] = ['accion' => 'anulado', 'antes' => $before, 'despues' => $primary->fresh()->toArray()];
+        }
+
+        return $changes;
+    }
+
     public function annul(CashMovement $movement, ?string $motivo = null): CashMovement
     {
         if ($movement->estado === 'anulado') {

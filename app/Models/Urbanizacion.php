@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -13,6 +14,7 @@ class Urbanizacion extends Model
 
     protected $fillable = [
         'nombre',
+        'propietario',
         'ubicacion',
         'descripcion',
         'plano_imagen',
@@ -31,6 +33,18 @@ class Urbanizacion extends Model
     public function manzanos(): HasMany
     {
         return $this->hasMany(Manzano::class);
+    }
+
+    public function scopeWithLotStats(Builder $query): Builder
+    {
+        return $query->withCount([
+            'manzanos',
+            'lotes as total_lotes',
+            'lotes as disponibles_count' => fn (Builder $query) => $query->where('estado', 'disponible'),
+            'lotes as vendidos_count' => fn (Builder $query) => $query->where('estado', 'vendido'),
+            'lotes as reservados_count' => fn (Builder $query) => $query->where('estado', 'reservado'),
+            'lotes as bloqueados_count' => fn (Builder $query) => $query->where('estado', 'bloqueado'),
+        ]);
     }
 
     public function lotes(): HasManyThrough

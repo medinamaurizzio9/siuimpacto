@@ -13,7 +13,7 @@ class UrbanizacionController extends Controller
     public function index(): View
     {
         return view('urbanizaciones.index', [
-            'urbanizaciones' => Urbanizacion::withCount('manzanos')->latest()->paginate(10),
+            'urbanizaciones' => Urbanizacion::withLotStats()->latest()->paginate(10),
         ]);
     }
 
@@ -54,6 +54,7 @@ class UrbanizacionController extends Controller
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
+            'propietario' => ['nullable', 'string', 'max:255'],
             'ubicacion' => ['nullable', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string'],
             'plano_imagen' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],

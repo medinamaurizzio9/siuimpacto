@@ -9,14 +9,29 @@ use App\Services\AuditService;
 use App\Services\LotService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class LoteController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $query = UrbanizacionContext::lotes(Lote::with('manzano'));
+
+        $query
+            ->when($request->filled('buscar'), fn ($query) => $query->where('codigo', 'like', '%'.$request->string('buscar')->trim().'%'))
+            ->when($request->filled('manzano_id'), fn ($query) => $query->where('manzano_id', $request->integer('manzano_id')))
+            ->when($request->filled('estado'), fn ($query) => $query->where('estado', $request->string('estado')->toString()))
+            ->when($request->filled('superficie_desde'), fn ($query) => $query->where('superficie', '>=', $request->input('superficie_desde')))
+            ->when($request->filled('superficie_hasta'), fn ($query) => $query->where('superficie', '<=', $request->input('superficie_hasta')))
+            ->when($request->filled('precio_desde'), fn ($query) => $query->where('precio', '>=', $request->input('precio_desde')))
+            ->when($request->filled('precio_hasta'), fn ($query) => $query->where('precio', '<=', $request->input('precio_hasta')));
+
         return view('lotes.index', [
-            'lotes' => UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion'))->orderBy('estado')->orderBy('codigo')->paginate(20),
+            'urbanizacion' => UrbanizacionContext::current(),
+            'manzanos' => Manzano::where('urbanizacion_id', UrbanizacionContext::currentId())->orderBy('codigo')->get(),
+            'estados' => Lote::ESTADOS,
+            'lotes' => $query->orderBy('manzano_id')->orderBy('codigo')->paginate(15)->appends($request->query()),
         ]);
     }
 

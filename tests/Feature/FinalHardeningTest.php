@@ -89,8 +89,7 @@ IMPACTO CSV,Z,01,300,60,18000,disponible,25,30,Importado');
         $this->actingAs($vendedor)
             ->withSession(['urbanizacion_id' => $vendedor->urbanizacionesAsignadas()->firstOrFail()->id])
             ->get(route('caja.index'))
-            ->assertOk()
-            ->assertDontSee('Anular');
+            ->assertForbidden();
     }
 
     private function csvPath(string $contents): string

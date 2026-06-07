@@ -52,22 +52,24 @@ class VentaController extends Controller
         return redirect()->route('ventas.index')->with('status', 'Operacion realizada correctamente.');
     }
 
-    public function edit(Venta $venta): View
+    public function edit(Request $request, Venta $venta): View
     {
+        $this->authorizeEdit($request, $venta);
         abort_unless(UrbanizacionContext::ventaBelongsToCurrent($venta), 403, 'No tienes acceso a esta urbanizacion');
 
         return view('ventas.form', $this->formData($venta));
     }
 
-    public function update(StoreVentaRequest $request, Venta $venta): RedirectResponse
+    public function update(StoreVentaRequest $request, Venta $venta, SaleService $saleService): RedirectResponse
     {
+        $this->authorizeEdit($request, $venta);
         abort_unless(UrbanizacionContext::ventaBelongsToCurrent($venta), 403, 'No tienes acceso a esta urbanizacion');
         $lote = Lote::with('manzano')->findOrFail($request->validated('lote_id'));
         $cliente = Cliente::findOrFail($request->validated('cliente_id'));
         abort_unless(UrbanizacionContext::loteBelongsToCurrent($lote), 403, 'No tienes acceso a esta urbanizacion');
         abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');
 
-        $venta->update($request->safe()->except(['metodo_pago', 'referencia', 'admin_confirma_reserva']));
+        $saleService->update($venta, $request->validated(), $request->user(), $request->string('motivo_cambio')->toString());
 
         return redirect()->route('ventas.index')->with('status', 'Operacion realizada correctamente.');
     }
@@ -85,13 +87,35 @@ class VentaController extends Controller
 
     private function formData(Venta $venta): array
     {
+        $venta->loadMissing('cashMovements');
+
         return [
             'venta' => $venta,
+            'initialMovement' => $venta->cashMovements
+                ->whereNull('installment_id')
+                ->whereIn('concepto', ['anticipo', 'contado'])
+                ->where('estado', 'confirmado')
+                ->first(),
             'clientes' => UrbanizacionContext::clientes(Cliente::query())->orderBy('nombre')->get(),
             'lotes' => UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion', 'reservaActiva.cliente'))
                 ->where(fn ($query) => $query->whereIn('estado', ['disponible', 'reservado'])->orWhere('id', $venta->lote_id))
                 ->orderBy('codigo')
                 ->get(),
         ];
+    }
+
+    private function authorizeEdit(Request $request, Venta $venta): void
+    {
+        abort_unless(
+            $request->user()->hasRole('administrador') && $request->user()->can('editar ventas'),
+            403,
+            'No tienes permiso para editar esta venta.'
+        );
+
+        abort_if(
+            $venta->estado === 'anulada' && ! $request->user()->can('editar ventas anuladas'),
+            403,
+            'No tienes permiso especial para editar una venta anulada.'
+        );
     }
 }

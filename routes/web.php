@@ -41,6 +41,9 @@ Route::middleware('auth')->group(function (): void {
 
     Route::middleware('password.changed')->group(function (): void {
         Route::get('/mi-cuenta', MiCuentaController::class)->middleware('role:cliente')->name('clientes.mi-cuenta');
+        Route::get('/clientes/{cliente}/pdf', [PdfController::class, 'clientProfile'])->name('clientes.pdf');
+        Route::get('/clientes/{cliente}/estado-cuenta/pdf', [PdfController::class, 'clientAccountStatement'])->name('clientes.estado-cuenta.pdf');
+        Route::get('/clientes/{cliente}/reservas/pdf', [PdfController::class, 'clientReservations'])->name('clientes.reservas.pdf');
         Route::get('/seleccionar-urbanizacion', [UrbanizacionSelectionController::class, 'index'])->name('urbanizaciones.select');
         Route::post('/seleccionar-urbanizacion', [UrbanizacionSelectionController::class, 'store'])->name('urbanizaciones.select.store');
         Route::get('/urbanizaciones/asignaciones', [UrbanizacionAssignmentController::class, 'index'])->name('urbanizaciones.asignaciones');
@@ -69,6 +72,7 @@ Route::middleware('auth')->group(function (): void {
         Route::resource('clientes', ClienteController::class)->middlewareFor(['index', 'show'], 'can:ver clientes')->middlewareFor(['create', 'store'], 'can:crear clientes')->middlewareFor(['edit', 'update'], 'can:editar clientes')->middlewareFor(['destroy'], 'can:eliminar clientes');
         Route::resource('ventas', VentaController::class)->except('show')->middlewareFor(['index'], 'can:ver ventas')->middlewareFor(['edit', 'update'], 'can:editar ventas')->middlewareFor(['create', 'store'], 'can:crear ventas')->middlewareFor(['destroy'], 'can:anular ventas');
         Route::resource('reservas', ReservaController::class)->except('show')->middlewareFor(['index'], 'can:ver reservas')->middlewareFor(['create', 'store'], 'can:crear reservas')->middlewareFor(['destroy'], 'can:cancelar reservas');
+        Route::get('reservas/{reserva}/recibo', [PdfController::class, 'reservationReceipt'])->name('reservas.recibo');
         Route::post('reservas/{reserva}/vencer', [ReservaController::class, 'expire'])->middleware('can:cancelar reservas')->name('reservas.expire');
         Route::resource('cuotas', CuotaController::class)->middleware('can:cobrar cuotas')->only('index', 'update');
         Route::get('/lotes-importar', [LotImportController::class, 'create'])->middleware('can:crear lotes')->name('lotes.import.create');

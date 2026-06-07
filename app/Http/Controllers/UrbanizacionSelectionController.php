@@ -14,10 +14,11 @@ class UrbanizacionSelectionController extends Controller
     {
         $urbanizaciones = UrbanizacionContext::accessibleUrbanizaciones($request->user())
             ->loadCount([
-                'lotes',
+                'lotes as total_lotes',
                 'lotes as disponibles_count' => fn ($query) => $query->where('estado', 'disponible'),
                 'lotes as vendidos_count' => fn ($query) => $query->where('estado', 'vendido'),
                 'lotes as reservados_count' => fn ($query) => $query->where('estado', 'reservado'),
+                'lotes as bloqueados_count' => fn ($query) => $query->where('estado', 'bloqueado'),
             ]);
 
         return view('urbanizaciones.select', compact('urbanizaciones'));

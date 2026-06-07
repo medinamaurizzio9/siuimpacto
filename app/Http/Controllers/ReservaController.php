@@ -20,7 +20,7 @@ class ReservaController extends Controller
 {
     public function index(Request $request, ReservationVisibilityService $visibility): View
     {
-        $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano.urbanizacion', 'usuario'))->latest();
+        $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano.urbanizacion', 'usuario', 'cashMovements'))->latest();
         $visibility->apply($query, $request->user());
 
         $this->applyFilters($query, $request, $visibility);
