@@ -8,6 +8,11 @@
     @csrf @method('PUT')
     <div class="field"><label>Nombre del sistema</label><input name="system_name" value="{{ old('system_name', $settings['system_name']) }}" required></div>
     <div class="field"><label>Subtitulo del sistema</label><input name="system_subtitle" value="{{ old('system_subtitle', $settings['system_subtitle']) }}" required></div>
+    <div class="field full">
+        <label>URL publica del sistema</label>
+        <input name="public_base_url" value="{{ old('public_base_url', $settings['public_base_url']) }}" placeholder="https://crm.inmolider.com">
+        <span class="muted">Sin slash final. Ejemplos: http://127.0.0.1:8000, http://192.168.1.50, http://54.123.45.67, https://crm.inmolider.com</span>
+    </div>
     <div class="field"><label>Nombre de la empresa</label><input name="company_name" value="{{ old('company_name', $settings['company_name']) }}"></div>
     <div class="field"><label>Razon social</label><input name="razon_social" value="{{ old('razon_social', $settings['razon_social']) }}"></div>
     <div class="field"><label>NIT</label><input name="nit" value="{{ old('nit', $settings['nit']) }}"></div>

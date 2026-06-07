@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\CashMovement;
 use App\Models\User;
-use App\Services\SystemSettingsService;
 use App\Services\ReceiptQrService;
+use App\Services\SystemSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -64,17 +64,16 @@ class ReciboPdfMejoradoTest extends TestCase
         $this->assertStringContainsString('Comprobante generado por el sistema', $html);
     }
 
-    public function test_qr_contiene_datos_institucionales_del_recibo(): void
+    public function test_qr_contiene_url_publica_de_verificacion(): void
     {
         $this->seed();
 
         $movimiento = CashMovement::with('cliente', 'reserva.lote.manzano.urbanizacion')->where('concepto', 'reserva')->firstOrFail();
         $data = app(ReceiptQrService::class)->data($movimiento, $movimiento->reserva?->lote);
 
-        $this->assertStringContainsString('Recibo: '.str_pad((string) $movimiento->id, 8, '0', STR_PAD_LEFT), $data);
-        $this->assertStringContainsString('Cliente: '.$movimiento->cliente->nombre, $data);
-        $this->assertStringContainsString('Urbanización: '.$movimiento->reserva->lote->manzano->urbanizacion->nombre, $data);
-        $this->assertStringContainsString('Monto: Bs '.number_format((float) $movimiento->monto, 2, '.', ''), $data);
+        $this->assertStringContainsString('/recibos/verificar/'.str_pad((string) $movimiento->id, 8, '0', STR_PAD_LEFT), $data);
+        $this->assertStringNotContainsString('Cliente: '.$movimiento->cliente->nombre, $data);
+        $this->assertStringNotContainsString('Monto: Bs '.number_format((float) $movimiento->monto, 2, '.', ''), $data);
     }
 
     private function contexto(): array

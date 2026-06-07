@@ -19,6 +19,7 @@ use App\Http\Controllers\PdfController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReservaController;
 use App\Http\Controllers\PublicDisponibilidadController;
+use App\Http\Controllers\PublicReceiptVerificationController;
 use App\Http\Controllers\SupervisorController;
 use App\Http\Controllers\SystemSettingController;
 use App\Http\Controllers\UrbanizacionAssignmentController;
@@ -28,6 +29,8 @@ use App\Http\Controllers\VentaController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/disponibilidad', PublicDisponibilidadController::class)->name('disponibilidad.publica');
+Route::get('/u/{slug}', [PublicDisponibilidadController::class, 'showBySlug'])->name('disponibilidad.urbanizacion');
+Route::get('/recibos/verificar/{numero}', PublicReceiptVerificationController::class)->name('recibos.verificar');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/', [AuthController::class, 'showLogin'])->name('login');

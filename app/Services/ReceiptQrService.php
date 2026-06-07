@@ -10,17 +10,13 @@ use Endroid\QrCode\Writer\PngWriter;
 
 class ReceiptQrService
 {
+    public function __construct(private PublicUrlService $publicUrl)
+    {
+    }
+
     public function data(CashMovement $movement, ?Lote $lot): string
     {
-        return implode("\n", [
-            'Recibo: '.$this->number($movement),
-            'Cliente: '.($movement->cliente?->nombre ?? 'Sin cliente registrado'),
-            'Documento: '.($movement->cliente?->documento ?? 'Sin documento'),
-            'Urbanización: '.($lot?->manzano?->urbanizacion?->nombre ?? 'No aplica'),
-            'Lote: '.($lot ? $lot->manzano->codigo.' / '.$lot->codigo : 'No aplica'),
-            'Monto: Bs '.number_format((float) $movement->monto, 2, '.', ''),
-            'Fecha: '.($movement->created_at?->format('d/m/Y H:i') ?? $movement->fecha?->format('d/m/Y')),
-        ]);
+        return $this->publicUrl->route('recibos.verificar', ['numero' => $this->number($movement)]);
     }
 
     public function dataUri(CashMovement $movement, ?Lote $lot): string

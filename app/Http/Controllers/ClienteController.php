@@ -13,14 +13,35 @@ use Illuminate\View\View;
 
 class ClienteController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $urbanizacionId = UrbanizacionContext::currentId();
+        $perPage = $this->perPage($request);
+        $search = trim((string) $request->query('q', ''));
+        $ventas = (string) $request->query('ventas', '');
+
+        $clientes = UrbanizacionContext::clientes(Cliente::withCount('ventas'), $urbanizacionId)
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($nested) use ($search): void {
+                    $nested->where('nombre', 'like', "%{$search}%")
+                        ->orWhere('documento', 'like', "%{$search}%")
+                        ->orWhere('telefono', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->when($ventas === 'con_ventas', fn ($query) => $query->has('ventas'))
+            ->when($ventas === 'sin_ventas', fn ($query) => $query->doesntHave('ventas'))
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString();
 
         return view('clientes.index', [
-            'clientes' => UrbanizacionContext::clientes(Cliente::withCount('ventas'), $urbanizacionId)
-                ->latest()
-                ->paginate(15),
+            'clientes' => $clientes,
+            'filters' => [
+                'q' => $search,
+                'ventas' => $ventas,
+                'per_page' => $perPage,
+            ],
         ]);
     }
 
@@ -136,5 +157,12 @@ class ClienteController extends Controller
             'created_by' => $cliente->createdBy?->name ?? 'Usuario no registrado',
             'created_at' => $cliente->created_at?->format('d/m/Y H:i') ?? '',
         ];
+    }
+
+    private function perPage(Request $request): int
+    {
+        $perPage = $request->integer('per_page', 15);
+
+        return in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 15;
     }
 }

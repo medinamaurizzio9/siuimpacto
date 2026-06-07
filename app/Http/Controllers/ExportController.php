@@ -10,6 +10,7 @@ use App\Models\Reserva;
 use App\Models\Venta;
 use App\Services\ReservationVisibilityService;
 use App\Support\UrbanizacionContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Response;
 
 class ExportController extends Controller
@@ -19,10 +20,10 @@ class ExportController extends Controller
         $map = [
             'lotes' => [UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion'))->get(), ['urbanizacion', 'manzano', 'lote', 'estado', 'superficie', 'precio']],
             'clientes' => [UrbanizacionContext::clientes(Cliente::query())->get(), ['nombre', 'documento', 'telefono', 'email']],
-            'ventas' => [UrbanizacionContext::ventas(Venta::with('cliente', 'lote.manzano'))->get(), ['fecha', 'cliente', 'lote', 'precio_final', 'estado']],
+            'ventas' => [$this->filteredVentas(Venta::with('cliente', 'lote.manzano'))->get(), ['fecha', 'cliente', 'lote', 'precio_final', 'estado']],
             'cuotas' => [UrbanizacionContext::cuotas(Cuota::with('venta.cliente'))->get(), ['cliente', 'numero', 'monto', 'pagado', 'saldo', 'estado']],
             'reservas' => [$visibility->apply(UrbanizacionContext::reservas(Reserva::with('cliente', 'lote'), UrbanizacionContext::currentId()), request()->user())->get(), ['cliente', 'lote', 'tipo_operacion', 'vence', 'monto', 'estado']],
-            'caja' => [UrbanizacionContext::cashMovements(CashMovement::with('cliente'))->get(), ['fecha', 'cliente', 'tipo', 'concepto', 'monto', 'estado']],
+            'caja' => [$this->filteredCaja(CashMovement::with('cliente'))->get(), ['fecha', 'cliente', 'tipo', 'concepto', 'metodo', 'referencia', 'monto', 'estado']],
         ];
 
         abort_unless(isset($map[$tipo]), 404);
@@ -47,7 +48,54 @@ class ExportController extends Controller
             'ventas' => [$row->fecha_venta?->format('Y-m-d'), $row->cliente->nombre, $row->lote->manzano->codigo.'-'.$row->lote->codigo, $row->precio_final, $row->estado],
             'cuotas' => [$row->venta->cliente->nombre, $row->numero, $row->monto, $row->monto_pagado, $row->saldo_pendiente, $row->estado],
             'reservas' => [$row->cliente->nombre, $row->lote->codigo, $row->tipo_operacion, $row->fecha_vencimiento?->format('Y-m-d'), $row->monto_reserva, $row->estado],
-            'caja' => [$row->fecha?->format('Y-m-d'), $row->cliente?->nombre, $row->tipo, $row->concepto, $row->monto, $row->estado],
+            'caja' => [$row->fecha?->format('Y-m-d'), $row->cliente?->nombre, $row->tipo, $row->concepto, $row->metodo_pago, $row->referencia, $row->monto, $row->estado],
         };
+    }
+
+    private function filteredVentas(Builder $query): Builder
+    {
+        $search = trim((string) request('q', ''));
+
+        return UrbanizacionContext::ventas($query)
+            ->when($search !== '', function (Builder $builder) use ($search): void {
+                $builder->where(function (Builder $nested) use ($search): void {
+                    $nested->whereHas('cliente', function (Builder $clienteQuery) use ($search): void {
+                        $clienteQuery->where('nombre', 'like', "%{$search}%")
+                            ->orWhere('documento', 'like', "%{$search}%")
+                            ->orWhere('telefono', 'like', "%{$search}%");
+                    })->orWhereHas('lote', function (Builder $loteQuery) use ($search): void {
+                        $loteQuery->where('codigo', 'like', "%{$search}%")
+                            ->orWhereHas('manzano', fn (Builder $manzanoQuery) => $manzanoQuery->where('codigo', 'like', "%{$search}%"));
+                    });
+                });
+            })
+            ->when(request()->filled('estado'), fn (Builder $builder) => $builder->where('estado', request('estado')))
+            ->when(request()->filled('fecha_desde'), fn (Builder $builder) => $builder->whereDate('fecha_venta', '>=', request('fecha_desde')))
+            ->when(request()->filled('fecha_hasta'), fn (Builder $builder) => $builder->whereDate('fecha_venta', '<=', request('fecha_hasta')))
+            ->latest();
+    }
+
+    private function filteredCaja(Builder $query): Builder
+    {
+        $search = trim((string) request('q', ''));
+
+        return UrbanizacionContext::cashMovements($query)
+            ->when($search !== '', function (Builder $builder) use ($search): void {
+                $builder->where(function (Builder $nested) use ($search): void {
+                    $nested->where('concepto', 'like', "%{$search}%")
+                        ->orWhere('referencia', 'like', "%{$search}%")
+                        ->orWhereHas('cliente', function (Builder $clienteQuery) use ($search): void {
+                            $clienteQuery->where('nombre', 'like', "%{$search}%")
+                                ->orWhere('documento', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when(request()->filled('tipo'), fn (Builder $builder) => $builder->where('tipo', request('tipo')))
+            ->when(request()->filled('concepto'), fn (Builder $builder) => $builder->where('concepto', request('concepto')))
+            ->when(request()->filled('metodo_pago'), fn (Builder $builder) => $builder->where('metodo_pago', request('metodo_pago')))
+            ->when(request()->filled('estado'), fn (Builder $builder) => $builder->where('estado', request('estado')))
+            ->when(request()->filled('fecha_desde'), fn (Builder $builder) => $builder->whereDate('fecha', '>=', request('fecha_desde')))
+            ->when(request()->filled('fecha_hasta'), fn (Builder $builder) => $builder->whereDate('fecha', '<=', request('fecha_hasta')))
+            ->latest();
     }
 }

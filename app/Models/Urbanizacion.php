@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Str;
 
 class Urbanizacion extends Model
 {
@@ -14,6 +15,7 @@ class Urbanizacion extends Model
 
     protected $fillable = [
         'nombre',
+        'slug',
         'propietario',
         'ubicacion',
         'descripcion',
@@ -28,6 +30,30 @@ class Urbanizacion extends Model
         return [
             'mostrar_precio_publico' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Urbanizacion $urbanizacion): void {
+            if (! $urbanizacion->slug || $urbanizacion->isDirty('nombre')) {
+                $urbanizacion->slug = static::uniqueSlug($urbanizacion->nombre, $urbanizacion->exists ? $urbanizacion->id : null);
+            }
+        });
+    }
+
+    private static function uniqueSlug(string $name, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($name) ?: 'urbanizacion';
+        $slug = $base;
+        $suffix = 2;
+
+        while (static::where('slug', $slug)
+            ->when($ignoreId, fn (Builder $query) => $query->whereKeyNot($ignoreId))
+            ->exists()) {
+            $slug = $base.'-'.$suffix++;
+        }
+
+        return $slug;
     }
 
     public function manzanos(): HasMany

@@ -11,6 +11,7 @@ class SystemSettingsService
     public const KEYS = [
         'system_name',
         'system_subtitle',
+        'public_base_url',
         'logo_main',
         'logo_login',
         'login_background',
@@ -41,6 +42,7 @@ class SystemSettingsService
             return [
                 'system_name' => $settings['system_name'] ?? 'IMPACTO URBANIZACIONES',
                 'system_subtitle' => $settings['system_subtitle'] ?? 'Sistema Integral de Terrenos',
+                'public_base_url' => $settings['public_base_url'] ?? '',
                 'logo_main' => $settings['logo_main'] ?? '',
                 'logo_login' => $settings['logo_login'] ?? '',
                 'login_background' => $settings['login_background'] ?? '',

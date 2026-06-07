@@ -6,6 +6,7 @@ use App\Models\Urbanizacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class UrbanizacionController extends Controller
@@ -75,6 +76,23 @@ class UrbanizacionController extends Controller
             unset($data['plano_imagen']);
         }
 
+        $data['slug'] = $this->uniqueSlug($data['nombre'], $urbanizacion);
+
         return $data;
+    }
+
+    private function uniqueSlug(string $name, ?Urbanizacion $urbanizacion = null): string
+    {
+        $base = Str::slug($name) ?: 'urbanizacion';
+        $slug = $base;
+        $suffix = 2;
+
+        while (Urbanizacion::where('slug', $slug)
+            ->when($urbanizacion, fn ($query) => $query->whereKeyNot($urbanizacion->id))
+            ->exists()) {
+            $slug = $base.'-'.$suffix++;
+        }
+
+        return $slug;
     }
 }

@@ -40,6 +40,16 @@
                 <div>
                     <h2>{{ $urbanizacion->nombre }}</h2>
                     <p class="muted">{{ $urbanizacion->ubicacion }}</p>
+                    @if(!empty($publicLink))
+                        <div class="public-link-box">
+                            <span>Link publico:</span>
+                            <a href="{{ $publicLink }}" target="_blank" rel="noopener">{{ $publicLink }}</a>
+                            <button class="btn secondary" type="button" data-copy-link="{{ $publicLink }}">Copiar link publico</button>
+                            @if(!empty($publicQrDataUri))
+                                <img class="public-link-qr" src="{{ $publicQrDataUri }}" alt="QR de disponibilidad publica">
+                            @endif
+                        </div>
+                    @endif
                 </div>
                 <div class="legend">
                     @foreach(['disponible' => 'Disponible', 'vendido' => 'Vendido', 'reservado' => 'Reservado', 'bloqueado' => 'Bloqueado'] as $key => $label)
@@ -117,6 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
         fullscreen: shell?.querySelector('[data-zoom-fullscreen]'),
         zoomLabel: shell?.querySelector('[data-zoom-value]'),
     });
+});
+
+document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy-link]');
+    if (!button) return;
+
+    await navigator.clipboard.writeText(button.dataset.copyLink);
+    button.textContent = 'Copiado';
+    setTimeout(() => button.textContent = 'Copiar link publico', 1600);
 });
 </script>
 </body>

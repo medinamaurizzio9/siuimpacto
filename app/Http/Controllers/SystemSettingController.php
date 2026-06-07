@@ -21,9 +21,14 @@ class SystemSettingController extends Controller
 
     public function update(Request $request, SystemSettingsService $settings, AuditService $auditService): RedirectResponse
     {
+        $request->merge([
+            'public_base_url' => trim((string) $request->input('public_base_url', '')),
+        ]);
+
         $data = $request->validate([
             'system_name' => ['required', 'string', 'max:255'],
             'system_subtitle' => ['required', 'string', 'max:255'],
+            'public_base_url' => ['nullable', 'string', 'max:255', 'regex:/^https?:\/\/.+[^\/]$/'],
             'company_name' => ['nullable', 'string', 'max:255'],
             'razon_social' => ['nullable', 'string', 'max:255'],
             'nit' => ['nullable', 'string', 'max:100'],
