@@ -10,7 +10,7 @@
 <button class="btn" onclick="return confirm('Confirma importar estos lotes?')">Importar lotes</button>
 </form>
 @endif
-<table class="table" style="margin-top:18px;"><thead><tr><th>Urbanizacion</th><th>Manzano</th><th>Lote</th><th>Estado</th><th>Precio</th></tr></thead><tbody>
-@foreach($rows as $row)<tr><td>{{ $row['urbanizacion'] }}</td><td>{{ $row['manzano'] }}</td><td>{{ $row['lote'] }}</td><td>{{ $row['estado'] }}</td><td>{{ $row['precio_total'] }}</td></tr>@endforeach
+<table class="table" style="margin-top:18px;"><thead><tr><th>Urbanizacion</th><th>Manzano</th><th>Lote</th><th>Estado</th><th>Precio</th><th>Cuota inicial</th></tr></thead><tbody>
+@foreach($rows as $row)<tr><td>{{ $row['urbanizacion'] }}</td><td>{{ $row['manzano'] }}</td><td>{{ $row['lote'] }}</td><td>{{ $row['estado'] }}</td><td>{{ $row['precio_total'] }}</td><td>{{ $row['cuota_inicial_tipo'] }} {{ $row['cuota_inicial_valor'] }}</td></tr>@endforeach
 </tbody></table>
 @endsection

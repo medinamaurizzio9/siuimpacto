@@ -22,11 +22,11 @@
         @endif
         <div class="field login-field">
             <label>Email</label>
-            <input name="email" type="email" value="{{ old('email', 'admin@impacto.test') }}" required autofocus>
+            <input name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="username">
         </div>
         <div class="field login-field">
             <label>Contraseña</label>
-            <input name="password" type="password" value="password" required>
+            <input name="password" type="password" required autocomplete="current-password">
         </div>
         <label class="login-remember">
             <input type="checkbox" name="remember" value="1"> Recordarme

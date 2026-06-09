@@ -8,6 +8,8 @@
 <div class="field"><label>Codigo</label><input name="codigo" value="{{ old('codigo', $lote->codigo) }}" required></div>
 <div class="field"><label>Superficie</label><input name="superficie" type="number" step="0.01" value="{{ old('superficie', $lote->superficie ?? 0) }}"></div>
 <div class="field"><label>Precio</label><input name="precio" type="number" step="0.01" value="{{ old('precio', $lote->precio ?? 0) }}"></div>
+<div class="field"><label>Tipo de cuota inicial</label><select name="cuota_inicial_tipo">@foreach(\App\Models\Lote::CUOTA_INICIAL_TIPOS as $tipo)<option value="{{ $tipo }}" @selected(old('cuota_inicial_tipo', $lote->cuota_inicial_tipo ?? 'monto') === $tipo)>{{ ucfirst($tipo) }}</option>@endforeach</select></div>
+<div class="field"><label>Valor cuota inicial</label><input name="cuota_inicial_valor" type="number" step="0.01" min="0" value="{{ old('cuota_inicial_valor', $lote->cuota_inicial_valor ?? 0) }}"></div>
 <div class="field"><label>Fila mapa</label><input name="fila" type="number" value="{{ old('fila', $lote->fila ?? 1) }}"></div>
 <div class="field"><label>Columna mapa</label><input name="columna" type="number" value="{{ old('columna', $lote->columna ?? 1) }}"></div>
 <div class="field"><label>Coordenada X (%)</label><input name="coord_x" type="number" step="0.01" min="0" max="100" value="{{ old('coord_x', $lote->coord_x ?? 50) }}"></div>

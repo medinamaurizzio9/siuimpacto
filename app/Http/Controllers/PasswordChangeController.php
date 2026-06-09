@@ -10,8 +10,12 @@ use Illuminate\View\View;
 
 class PasswordChangeController extends Controller
 {
-    public function edit(): View
+    public function edit(Request $request): View|RedirectResponse
     {
+        if (! $request->user()?->must_change_password) {
+            return $this->redirectAfterPasswordChange($request);
+        }
+
         return view('auth.change-password');
     }
 
@@ -31,6 +35,15 @@ class PasswordChangeController extends Controller
 
         $auditService->log($user, 'asesor_cambia_password', 'Asesor cambio su contrasena obligatoria.', $before, ['must_change_password' => false], $request);
 
-        return redirect()->route('urbanizaciones.select')->with('status', 'Contrasena actualizada correctamente.');
+        return $this->redirectAfterPasswordChange($request)->with('status', 'Contrasena actualizada correctamente.');
+    }
+
+    private function redirectAfterPasswordChange(Request $request): RedirectResponse
+    {
+        if ($request->user()?->hasRole('cliente')) {
+            return redirect()->route('clientes.mi-cuenta');
+        }
+
+        return redirect()->intended(route('urbanizaciones.select'));
     }
 }

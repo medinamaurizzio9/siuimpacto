@@ -18,7 +18,7 @@ class ExportController extends Controller
     public function __invoke(string $tipo, ReservationVisibilityService $visibility): Response
     {
         $map = [
-            'lotes' => [UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion'))->get(), ['urbanizacion', 'manzano', 'lote', 'estado', 'superficie', 'precio']],
+            'lotes' => [UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion'))->get(), ['urbanizacion', 'manzano', 'lote', 'estado', 'superficie', 'precio', 'cuota_inicial_tipo', 'cuota_inicial_valor', 'cuota_inicial']],
             'clientes' => [UrbanizacionContext::clientes(Cliente::query())->get(), ['nombre', 'documento', 'telefono', 'email']],
             'ventas' => [$this->filteredVentas(Venta::with('cliente', 'lote.manzano'))->get(), ['fecha', 'cliente', 'lote', 'precio_final', 'estado']],
             'cuotas' => [UrbanizacionContext::cuotas(Cuota::with('venta.cliente'))->get(), ['cliente', 'numero', 'monto', 'pagado', 'saldo', 'estado']],
@@ -43,7 +43,7 @@ class ExportController extends Controller
     private function values(string $tipo, mixed $row): array
     {
         return match ($tipo) {
-            'lotes' => [$row->manzano->urbanizacion->nombre, $row->manzano->codigo, $row->codigo, $row->estado, $row->superficie, $row->precio],
+            'lotes' => [$row->manzano->urbanizacion->nombre, $row->manzano->codigo, $row->codigo, $row->estado, $row->superficie, $row->precio, $row->cuota_inicial_tipo, $row->cuota_inicial_valor, $row->cuotaInicialTexto()],
             'clientes' => [$row->nombre, $row->documento, $row->telefono, $row->email],
             'ventas' => [$row->fecha_venta?->format('Y-m-d'), $row->cliente->nombre, $row->lote->manzano->codigo.'-'.$row->lote->codigo, $row->precio_final, $row->estado],
             'cuotas' => [$row->venta->cliente->nombre, $row->numero, $row->monto, $row->monto_pagado, $row->saldo_pendiente, $row->estado],

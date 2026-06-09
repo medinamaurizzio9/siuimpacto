@@ -37,7 +37,15 @@ class LoteController extends Controller
 
     public function create(): View
     {
-        return view('lotes.form', $this->formData(new Lote(['estado' => 'disponible', 'fila' => 1, 'columna' => 1, 'coord_x' => null, 'coord_y' => null])));
+        return view('lotes.form', $this->formData(new Lote([
+            'estado' => 'disponible',
+            'fila' => 1,
+            'columna' => 1,
+            'coord_x' => null,
+            'coord_y' => null,
+            'cuota_inicial_tipo' => 'monto',
+            'cuota_inicial_valor' => 0,
+        ])));
     }
 
     public function store(StoreLoteRequest $request, AuditService $auditService): RedirectResponse
@@ -75,7 +83,7 @@ class LoteController extends Controller
             $request->validate(['motivo_cambio_estado' => ['required', 'string', 'max:500']]);
         }
 
-        $before = $lote->only(['precio', 'estado']);
+        $before = $lote->only(['precio', 'estado', 'cuota_inicial_tipo', 'cuota_inicial_valor']);
         $auditBefore = $lote->toArray();
         $lote->update($request->validated());
         $lotService->trackManualChanges($lote, $before, $request->user());

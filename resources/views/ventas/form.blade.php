@@ -5,7 +5,7 @@
 <form class="form card" method="POST" action="{{ $venta->exists ? route('ventas.update', $venta) : route('ventas.store') }}">
 @csrf @if($venta->exists) @method('PUT') @endif
 @include('clientes.partials.buscador', ['selectedCliente' => $clientes->firstWhere('id', (int) old('cliente_id', $venta->cliente_id)), 'loteSource' => 'lote_id'])
-<div class="field"><label>Lote disponible</label><select name="lote_id" id="lote_id">@foreach($lotes as $lote)<option value="{{ $lote->id }}" @selected(old('lote_id', $venta->lote_id) == $lote->id)>{{ $lote->manzano->urbanizacion->nombre }} / {{ $lote->manzano->codigo }}-{{ $lote->codigo }} / {{ number_format($lote->precio, 2) }}</option>@endforeach</select></div>
+<div class="field"><label>Lote disponible</label><select name="lote_id" id="lote_id">@foreach($lotes as $lote)<option value="{{ $lote->id }}" data-cuota-inicial="{{ $lote->cuotaInicialTexto() }}" @selected(old('lote_id', $venta->lote_id) == $lote->id)>{{ $lote->manzano->urbanizacion->nombre }} / {{ $lote->manzano->codigo }}-{{ $lote->codigo }} / {{ number_format($lote->precio, 2) }} / Cuota inicial: {{ $lote->cuotaInicialTexto() }}</option>@endforeach</select><small class="muted" id="lote-cuota-inicial-info"></small></div>
 <div class="field"><label>Fecha venta</label><input name="fecha_venta" type="date" value="{{ old('fecha_venta', optional($venta->fecha_venta)->format('Y-m-d') ?? now()->format('Y-m-d')) }}"></div>
 <div class="field"><label>Precio final</label><input name="precio_final" type="number" step="0.01" value="{{ old('precio_final', $venta->precio_final ?? 0) }}"></div>
 <div class="field"><label>Cuota inicial</label><input name="cuota_inicial" type="number" step="0.01" value="{{ old('cuota_inicial', $venta->cuota_inicial ?? 0) }}"></div>
@@ -20,4 +20,23 @@
 @endif
 <div class="field full"><button class="btn">Guardar</button></div>
 </form>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const loteSelect = document.getElementById('lote_id');
+    const cuotaInfo = document.getElementById('lote-cuota-inicial-info');
+    if (! loteSelect || ! cuotaInfo) {
+        return;
+    }
+
+    const updateCuotaInicialInfo = function () {
+        const selected = loteSelect.options[loteSelect.selectedIndex];
+        cuotaInfo.textContent = selected?.dataset?.cuotaInicial
+            ? `Cuota inicial configurada del lote: ${selected.dataset.cuotaInicial}`
+            : '';
+    };
+
+    loteSelect.addEventListener('change', updateCuotaInicialInfo);
+    updateCuotaInicialInfo();
+});
+</script>
 @endsection

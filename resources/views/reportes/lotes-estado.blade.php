@@ -16,11 +16,11 @@
 
 <div class="card" style="margin-top:18px;" data-report="lotes-estado">
     <h2>Tabla de lotes</h2>
-    <table class="table"><thead><tr><th>Manzano</th><th>Lote</th><th>Superficie</th><th>Precio</th><th>Estado</th></tr></thead><tbody>
+    <table class="table"><thead><tr><th>Manzano</th><th>Lote</th><th>Superficie</th><th>Precio</th><th>Cuota inicial</th><th>Estado</th></tr></thead><tbody>
         @forelse($lotes as $lote)
-            <tr><td>{{ $lote->manzano->codigo }}</td><td>{{ $lote->codigo }}</td><td>{{ number_format($lote->superficie, 2) }}</td><td>{{ number_format($lote->precio, 2) }}</td><td><span class="badge {{ $lote->estado }}">{{ $lote->estado }}</span></td></tr>
+            <tr><td>{{ $lote->manzano->codigo }}</td><td>{{ $lote->codigo }}</td><td>{{ number_format($lote->superficie, 2) }}</td><td>{{ number_format($lote->precio, 2) }}</td><td>{{ $lote->cuotaInicialTexto() }}</td><td><span class="badge {{ $lote->estado }}">{{ $lote->estado }}</span></td></tr>
         @empty
-            <tr><td colspan="5">No se encontraron lotes con los filtros aplicados.</td></tr>
+            <tr><td colspan="6">No se encontraron lotes con los filtros aplicados.</td></tr>
         @endforelse
     </tbody></table>
 </div>

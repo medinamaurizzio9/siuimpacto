@@ -7,6 +7,7 @@
     <p><strong>Lote:</strong> {{ $lote->codigo }}</p>
     <p><strong>Superficie:</strong> {{ number_format($lote->superficie, 2) }} m2</p>
     <p><strong>Precio:</strong> {{ number_format($lote->precio, 2) }}</p>
+    <p><strong>Cuota inicial:</strong> {{ $lote->cuotaInicialTexto() }}</p>
     <p><strong>Estado:</strong> <span class="badge {{ $lote->estado }}">{{ $lote->estado }}</span></p>
     @if($lote->reservaActiva)
         <p><strong>Reserva activa:</strong> {{ $lote->reservaActiva->cliente->nombre }}</p>

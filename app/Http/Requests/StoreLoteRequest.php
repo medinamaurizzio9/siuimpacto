@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreLoteRequest extends FormRequest
 {
@@ -20,6 +21,13 @@ class StoreLoteRequest extends FormRequest
             'codigo' => ['required', 'string', 'max:50'],
             'superficie' => ['required', 'numeric', 'min:0'],
             'precio' => ['required', 'numeric', 'min:0'],
+            'cuota_inicial_tipo' => ['required', 'in:monto,porcentaje'],
+            'cuota_inicial_valor' => [
+                'required',
+                'numeric',
+                'min:0',
+                Rule::when($this->input('cuota_inicial_tipo') === 'porcentaje', ['max:100']),
+            ],
             'estado' => ['required', 'in:disponible,reservado,vendido,bloqueado'],
             'fila' => ['required', 'integer', 'min:1'],
             'columna' => ['required', 'integer', 'min:1'],

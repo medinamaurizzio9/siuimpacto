@@ -9,7 +9,8 @@ use Illuminate\Http\UploadedFile;
 
 class LotCsvImportService
 {
-    private const HEADERS = ['urbanizacion', 'manzano', 'lote', 'superficie_m2', 'precio_m2', 'precio_total', 'estado', 'coord_x', 'coord_y', 'observaciones'];
+    private const HEADERS = ['urbanizacion', 'manzano', 'lote', 'superficie_m2', 'precio_m2', 'precio_total', 'cuota_inicial_tipo', 'cuota_inicial_valor', 'estado', 'coord_x', 'coord_y', 'observaciones'];
+    private const LEGACY_HEADERS = ['urbanizacion', 'manzano', 'lote', 'superficie_m2', 'precio_m2', 'precio_total', 'estado', 'coord_x', 'coord_y', 'observaciones'];
 
     public function parse(UploadedFile|string $file): array
     {
@@ -21,13 +22,18 @@ class LotCsvImportService
         $errors = [];
         $line = 1;
 
-        if ($headers !== self::HEADERS) {
+        $acceptedHeaders = [self::HEADERS, self::LEGACY_HEADERS];
+        $activeHeaders = in_array($headers, $acceptedHeaders, true) ? $headers : self::HEADERS;
+
+        if (! in_array($headers, $acceptedHeaders, true)) {
             $errors[] = 'La cabecera CSV no coincide con el formato requerido.';
         }
 
         while (($data = fgetcsv($handle)) !== false) {
             $line++;
-            $row = array_combine(self::HEADERS, array_pad($data, count(self::HEADERS), null));
+            $row = array_combine($activeHeaders, array_pad($data, count($activeHeaders), null));
+            $row['cuota_inicial_tipo'] = trim((string) ($row['cuota_inicial_tipo'] ?? 'monto')) ?: 'monto';
+            $row['cuota_inicial_valor'] = $row['cuota_inicial_valor'] ?? 0;
             $rowErrors = $this->validateRow($row, $line);
 
             if ($rowErrors) {
@@ -61,6 +67,8 @@ class LotCsvImportService
                 'codigo' => trim($row['lote']),
                 'superficie' => (float) $row['superficie_m2'],
                 'precio' => (float) $row['precio_total'],
+                'cuota_inicial_tipo' => trim((string) ($row['cuota_inicial_tipo'] ?: 'monto')),
+                'cuota_inicial_valor' => (float) ($row['cuota_inicial_valor'] ?? 0),
                 'estado' => trim($row['estado']),
                 'fila' => 1,
                 'columna' => 1,
@@ -87,6 +95,18 @@ class LotCsvImportService
             if (! is_numeric($row[$field]) || (float) $row[$field] < 0) {
                 $errors[] = "Linea {$line}: {$field} debe ser numerico y mayor o igual a cero.";
             }
+        }
+
+        if (! in_array($row['cuota_inicial_tipo'], Lote::CUOTA_INICIAL_TIPOS, true)) {
+            $errors[] = "Linea {$line}: cuota_inicial_tipo invalido.";
+        }
+
+        if (! is_numeric($row['cuota_inicial_valor']) || (float) $row['cuota_inicial_valor'] < 0) {
+            $errors[] = "Linea {$line}: cuota_inicial_valor debe ser numerico y mayor o igual a cero.";
+        }
+
+        if ($row['cuota_inicial_tipo'] === 'porcentaje' && (float) $row['cuota_inicial_valor'] > 100) {
+            $errors[] = "Linea {$line}: cuota_inicial_valor no puede ser mayor a 100 cuando el tipo es porcentaje.";
         }
 
         if (! in_array($row['estado'], Lote::ESTADOS, true)) {

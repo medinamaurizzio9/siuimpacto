@@ -86,6 +86,108 @@ class TerrainListingEnhancementsTest extends TestCase
             ->assertSee('page=2', false);
     }
 
+    public function test_lote_guarda_muestra_y_expone_cuota_inicial_configurada(): void
+    {
+        $manzano = $this->urbanizacion->manzanos()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->post(route('lotes.store'), [
+                'manzano_id' => $manzano->id,
+                'codigo' => 'CI-LOTE',
+                'superficie' => 320,
+                'precio' => 30000,
+                'cuota_inicial_tipo' => 'porcentaje',
+                'cuota_inicial_valor' => 20,
+                'estado' => 'disponible',
+                'fila' => 1,
+                'columna' => 1,
+                'coord_x' => null,
+                'coord_y' => null,
+                'observaciones' => null,
+            ])
+            ->assertRedirect(route('lotes.index'));
+
+        $lote = Lote::where('codigo', 'CI-LOTE')->firstOrFail();
+
+        $this->assertDatabaseHas('lotes', [
+            'id' => $lote->id,
+            'cuota_inicial_tipo' => 'porcentaje',
+            'cuota_inicial_valor' => 20,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->get(route('lotes.index', ['buscar' => 'CI-LOTE']))
+            ->assertOk()
+            ->assertSee('Cuota inicial')
+            ->assertSee('20%');
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->get(route('lotes.show', $lote))
+            ->assertOk()
+            ->assertSee('Cuota inicial')
+            ->assertSee('20%');
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->get(route('ventas.create', ['lote_id' => $lote->id]))
+            ->assertOk()
+            ->assertSee('Cuota inicial configurada del lote')
+            ->assertSee('20%');
+    }
+
+    public function test_lote_rechaza_porcentaje_de_cuota_inicial_mayor_a_cien(): void
+    {
+        $manzano = $this->urbanizacion->manzanos()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->post(route('lotes.store'), [
+                'manzano_id' => $manzano->id,
+                'codigo' => 'CI-INVALIDO',
+                'superficie' => 320,
+                'precio' => 30000,
+                'cuota_inicial_tipo' => 'porcentaje',
+                'cuota_inicial_valor' => 120,
+                'estado' => 'disponible',
+                'fila' => 1,
+                'columna' => 1,
+                'coord_x' => null,
+                'coord_y' => null,
+            ])
+            ->assertSessionHasErrors('cuota_inicial_valor');
+    }
+
+    public function test_editar_cuota_inicial_registra_historial_de_lote(): void
+    {
+        $lote = Lote::whereHas('manzano', fn ($query) => $query->where('urbanizacion_id', $this->urbanizacion->id))->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->put(route('lotes.update', $lote), [
+                'manzano_id' => $lote->manzano_id,
+                'codigo' => $lote->codigo,
+                'superficie' => $lote->superficie,
+                'precio' => $lote->precio,
+                'cuota_inicial_tipo' => 'monto',
+                'cuota_inicial_valor' => 5000,
+                'estado' => $lote->estado,
+                'fila' => $lote->fila,
+                'columna' => $lote->columna,
+                'coord_x' => $lote->coord_x,
+                'coord_y' => $lote->coord_y,
+                'observaciones' => $lote->observaciones,
+            ])
+            ->assertRedirect(route('lotes.index'));
+
+        $this->assertDatabaseHas('lot_histories', [
+            'lote_id' => $lote->id,
+            'accion' => 'cambio_cuota_inicial',
+        ]);
+    }
+
     public function test_manzanos_filtra_por_urbanizacion_y_pagina_quince(): void
     {
         $otraUrbanizacion = Urbanizacion::whereKeyNot($this->urbanizacion->id)->firstOrFail();

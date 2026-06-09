@@ -55,13 +55,34 @@ class FinalHardeningTest extends TestCase
     {
         $this->seed();
 
-        $path = $this->csvPath('urbanizacion,manzano,lote,superficie_m2,precio_m2,precio_total,estado,coord_x,coord_y,observaciones
-IMPACTO CSV,Z,01,300,60,18000,disponible,25,30,Importado');
+        $path = $this->csvPath('urbanizacion,manzano,lote,superficie_m2,precio_m2,precio_total,cuota_inicial_tipo,cuota_inicial_valor,estado,coord_x,coord_y,observaciones
+IMPACTO CSV,Z,01,300,60,18000,porcentaje,15,disponible,25,30,Importado');
 
         $result = app(LotCsvImportService::class)->parse($path);
         $this->assertSame([], $result['errors']);
         $this->assertSame(1, app(LotCsvImportService::class)->import($result['rows']));
-        $this->assertDatabaseHas('lotes', ['codigo' => '01']);
+        $this->assertDatabaseHas('lotes', [
+            'codigo' => '01',
+            'cuota_inicial_tipo' => 'porcentaje',
+            'cuota_inicial_valor' => 15,
+        ]);
+    }
+
+    public function test_importacion_csv_antigua_sigue_funcionando_con_cuota_inicial_por_defecto(): void
+    {
+        $this->seed();
+
+        $path = $this->csvPath('urbanizacion,manzano,lote,superficie_m2,precio_m2,precio_total,estado,coord_x,coord_y,observaciones
+IMPACTO CSV LEGACY,Z,02,300,60,18000,disponible,25,30,Importado');
+
+        $result = app(LotCsvImportService::class)->parse($path);
+        $this->assertSame([], $result['errors']);
+        $this->assertSame(1, app(LotCsvImportService::class)->import($result['rows']));
+        $this->assertDatabaseHas('lotes', [
+            'codigo' => '02',
+            'cuota_inicial_tipo' => 'monto',
+            'cuota_inicial_valor' => 0,
+        ]);
     }
 
     public function test_importacion_csv_rechaza_duplicados(): void

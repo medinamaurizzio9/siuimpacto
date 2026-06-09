@@ -96,5 +96,18 @@ class LotService
         if (($before['estado'] ?? null) !== $lote->estado) {
             $this->recordHistory($lote, 'cambio_estado_manual', $user, 'Cambio manual de estado del lote.', $before['estado'] ?? null, $lote->estado);
         }
+
+        $tipoAnterior = $before['cuota_inicial_tipo'] ?? null;
+        $valorAnterior = array_key_exists('cuota_inicial_valor', $before) ? (float) $before['cuota_inicial_valor'] : null;
+        if ($tipoAnterior !== $lote->cuota_inicial_tipo || $valorAnterior !== (float) $lote->cuota_inicial_valor) {
+            $this->recordHistory(
+                $lote,
+                'cambio_cuota_inicial',
+                $user,
+                'Cambio manual de cuota inicial: '.($tipoAnterior ?? 'sin tipo').' '.$valorAnterior.' a '.$lote->cuota_inicial_tipo.' '.$lote->cuota_inicial_valor,
+                $before['estado'] ?? null,
+                $lote->estado
+            );
+        }
     }
 }

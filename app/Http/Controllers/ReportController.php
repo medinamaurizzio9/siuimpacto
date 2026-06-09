@@ -416,11 +416,14 @@ class ReportController extends Controller
             $query->where('estado', $request->query('estado'));
         }
 
-        return $this->csvFromRows(['manzano', 'lote', 'superficie', 'precio', 'estado'], $query->get(), fn (Lote $lote) => [
+        return $this->csvFromRows(['manzano', 'lote', 'superficie', 'precio', 'cuota_inicial_tipo', 'cuota_inicial_valor', 'cuota_inicial', 'estado'], $query->get(), fn (Lote $lote) => [
             $lote->manzano->codigo,
             $lote->codigo,
             $lote->superficie,
             $lote->precio,
+            $lote->cuota_inicial_tipo,
+            $lote->cuota_inicial_valor,
+            $lote->cuotaInicialTexto(),
             $lote->estado,
         ]);
     }

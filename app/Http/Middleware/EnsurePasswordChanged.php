@@ -10,7 +10,7 @@ class EnsurePasswordChanged
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user()?->must_change_password) {
+        if ($request->user()?->must_change_password && ! $request->routeIs('password.change', 'password.change.update', 'logout')) {
             return redirect()->route('password.change')->with('status', 'Debes cambiar tu contrasena para continuar.');
         }
 

@@ -106,7 +106,7 @@
                                         $canVenderOption = ! $isVendedorMapa && ! $isSupervisorMapa && auth()->user()?->can('crear ventas') && in_array($lote->estado, ['disponible', 'reservado'], true);
                                         $canEditarOption = ! $isVendedorMapa && ! $isSupervisorMapa && auth()->user()?->can('editar lotes');
                                     @endphp
-                                    <option value="{{ $lote->id }}" data-manzano="{{ $manzano->id }}" data-label="{{ $manzano->codigo }}-{{ $lote->codigo }}" data-estado="{{ $lote->estado }}" data-has-position="{{ ! is_null($lote->coord_x) && ! is_null($lote->coord_y) ? '1' : '0' }}" data-detail-url="{{ route('lotes.show', $lote) }}" data-reserva-url="{{ route('reservas.create', ['lote_id' => $lote->id]) }}" data-venta-url="{{ route('ventas.create', ['lote_id' => $lote->id]) }}" data-edit-url="{{ route('lotes.edit', $lote) }}" data-can-reservar="{{ $canReservarOption ? '1' : '0' }}" data-can-vender="{{ $canVenderOption ? '1' : '0' }}" data-can-editar="{{ $canEditarOption ? '1' : '0' }}">{{ $manzano->codigo }}-{{ $lote->codigo }}{{ is_null($lote->coord_x) || is_null($lote->coord_y) ? ' (sin ubicacion)' : '' }}</option>
+                                    <option value="{{ $lote->id }}" data-manzano="{{ $manzano->id }}" data-label="{{ $manzano->codigo }}-{{ $lote->codigo }}" data-estado="{{ $lote->estado }}" data-cuota-inicial="{{ $lote->cuotaInicialTexto() }}" data-has-position="{{ ! is_null($lote->coord_x) && ! is_null($lote->coord_y) ? '1' : '0' }}" data-detail-url="{{ route('lotes.show', $lote) }}" data-reserva-url="{{ route('reservas.create', ['lote_id' => $lote->id]) }}" data-venta-url="{{ route('ventas.create', ['lote_id' => $lote->id]) }}" data-edit-url="{{ route('lotes.edit', $lote) }}" data-can-reservar="{{ $canReservarOption ? '1' : '0' }}" data-can-vender="{{ $canVenderOption ? '1' : '0' }}" data-can-editar="{{ $canEditarOption ? '1' : '0' }}">{{ $manzano->codigo }}-{{ $lote->codigo }}{{ is_null($lote->coord_x) || is_null($lote->coord_y) ? ' (sin ubicacion)' : '' }}</option>
                                 @endforeach
                             @endforeach
                         </select>
@@ -140,7 +140,7 @@
                                 $canVender = ! $isVendedorMapa && ! $isSupervisorMapa && auth()->user()?->can('crear ventas') && in_array($lote->estado, ['disponible', 'reservado'], true);
                                 $canEditar = ! $isVendedorMapa && ! $isSupervisorMapa && auth()->user()?->can('editar lotes');
                             @endphp
-                            <button type="button" class="map-point lot-point {{ $lote->estado }}" data-lote-id="{{ $lote->id }}" data-label="{{ $manzano->codigo }}-{{ $lote->codigo }}" data-urbanizacion="{{ $urbanizacion->nombre }}" data-manzano="{{ $manzano->codigo }}" data-lote="{{ $lote->codigo }}" data-superficie="{{ number_format($lote->superficie, 2) }} m2" data-precio="{{ number_format($lote->precio, 2) }}" data-estado="{{ $lote->estado }}" data-detail-url="{{ route('lotes.show', $lote) }}" data-reserva-url="{{ route('reservas.create', ['lote_id' => $lote->id]) }}" data-venta-url="{{ route('ventas.create', ['lote_id' => $lote->id]) }}" data-edit-url="{{ route('lotes.edit', $lote) }}" data-can-reservar="{{ $canReservar ? '1' : '0' }}" data-can-vender="{{ $canVender ? '1' : '0' }}" data-can-editar="{{ $canEditar ? '1' : '0' }}" title="{{ $manzano->codigo }}-{{ $lote->codigo }}" style="left: {{ max(0, min(100, (float) $lote->coord_x)) }}%; top: {{ max(0, min(100, (float) $lote->coord_y)) }}%;"><span>{{ $lote->codigo }}</span></button>
+                            <button type="button" class="map-point lot-point {{ $lote->estado }}" data-lote-id="{{ $lote->id }}" data-label="{{ $manzano->codigo }}-{{ $lote->codigo }}" data-urbanizacion="{{ $urbanizacion->nombre }}" data-manzano="{{ $manzano->codigo }}" data-lote="{{ $lote->codigo }}" data-superficie="{{ number_format($lote->superficie, 2) }} m2" data-precio="{{ number_format($lote->precio, 2) }}" data-cuota-inicial="{{ $lote->cuotaInicialTexto() }}" data-estado="{{ $lote->estado }}" data-detail-url="{{ route('lotes.show', $lote) }}" data-reserva-url="{{ route('reservas.create', ['lote_id' => $lote->id]) }}" data-venta-url="{{ route('ventas.create', ['lote_id' => $lote->id]) }}" data-edit-url="{{ route('lotes.edit', $lote) }}" data-can-reservar="{{ $canReservar ? '1' : '0' }}" data-can-vender="{{ $canVender ? '1' : '0' }}" data-can-editar="{{ $canEditar ? '1' : '0' }}" title="{{ $manzano->codigo }}-{{ $lote->codigo }}" style="left: {{ max(0, min(100, (float) $lote->coord_x)) }}%; top: {{ max(0, min(100, (float) $lote->coord_y)) }}%;"><span>{{ $lote->codigo }}</span></button>
                         @endforeach
                     </div>
                 </div>
@@ -154,6 +154,7 @@
                         <p><strong>Lote:</strong> <span data-modal-lote></span></p>
                         <p><strong>Superficie:</strong> <span data-modal-superficie></span></p>
                         <p><strong>Precio:</strong> <span data-modal-precio></span></p>
+                        <p><strong>Cuota inicial:</strong> <span data-modal-cuota-inicial></span></p>
                         <p><strong>Estado:</strong> <span class="badge" data-modal-estado></span></p>
                         <p class="muted" data-modal-message hidden></p>
                         <div class="actions">
@@ -268,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         point.dataset.lote = option?.dataset.label?.split('-').pop() || '';
         point.dataset.superficie = '';
         point.dataset.precio = '';
+        point.dataset.cuotaInicial = option?.dataset.cuotaInicial || '';
         point.dataset.estado = option?.dataset.estado || 'disponible';
         point.dataset.detailUrl = option?.dataset.detailUrl || '';
         point.dataset.reservaUrl = option?.dataset.reservaUrl || '';

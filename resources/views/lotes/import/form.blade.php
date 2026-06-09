@@ -5,7 +5,7 @@
 <form class="card form" method="POST" enctype="multipart/form-data" action="{{ route('lotes.import.preview') }}">
 @csrf
 <div class="field full"><label>Archivo CSV</label><input type="file" name="csv" accept=".csv,.txt" required></div>
-<div class="field full muted">Columnas: urbanizacion, manzano, lote, superficie_m2, precio_m2, precio_total, estado, coord_x, coord_y, observaciones</div>
+<div class="field full muted">Columnas: urbanizacion, manzano, lote, superficie_m2, precio_m2, precio_total, cuota_inicial_tipo, cuota_inicial_valor, estado, coord_x, coord_y, observaciones</div>
 <div class="field full"><button class="btn">Validar archivo</button></div>
 </form>
 @endsection
