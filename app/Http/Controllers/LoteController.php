@@ -31,7 +31,7 @@ class LoteController extends Controller
             'urbanizacion' => UrbanizacionContext::current(),
             'manzanos' => Manzano::where('urbanizacion_id', UrbanizacionContext::currentId())->orderBy('codigo')->get(),
             'estados' => Lote::ESTADOS,
-            'lotes' => $query->orderBy('manzano_id')->orderBy('codigo')->paginate(15)->appends($request->query()),
+            'lotes' => $query->orderBy('manzano_id')->orderBy('codigo')->paginate(10)->appends($request->query()),
         ]);
     }
 

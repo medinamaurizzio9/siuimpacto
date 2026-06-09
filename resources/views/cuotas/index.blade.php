@@ -12,5 +12,10 @@
 </form>
 </tr>
 @endforeach
-</tbody></table><div class="pagination">{{ $cuotas->links() }}</div>
+</tbody></table>
+@if ($cuotas->hasPages())
+<div class="pagination-wrapper">
+    {{ $cuotas->appends(request()->query())->links() }}
+</div>
+@endif
 @endsection

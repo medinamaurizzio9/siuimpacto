@@ -30,7 +30,6 @@ class ListadoFiltrosPaginacionTest extends TestCase
             ->assertSee('Filtrar')
             ->assertSee('Limpiar')
             ->assertSee('Mostrando')
-            ->assertSee('pagination', false)
             ->assertSee('Mariela');
     }
 
@@ -40,8 +39,7 @@ class ListadoFiltrosPaginacionTest extends TestCase
             ->assertOk()
             ->assertSee('Buscar venta')
             ->assertSee('Mostrando')
-            ->assertSee('ventas')
-            ->assertSee('pagination', false);
+            ->assertSee('ventas');
     }
 
     public function test_ventas_filtra_por_cliente(): void
@@ -81,8 +79,7 @@ class ListadoFiltrosPaginacionTest extends TestCase
             ->assertSee('Buscar movimiento')
             ->assertSee('Mostrando')
             ->assertSee('movimientos')
-            ->assertSee('Imprimir recibo')
-            ->assertSee('pagination', false);
+            ->assertSee('Imprimir recibo');
     }
 
     public function test_caja_filtra_por_cliente(): void

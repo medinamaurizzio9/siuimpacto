@@ -135,5 +135,9 @@
     </table>
 </div>
 
-<div class="pagination">{{ $movimientos->links() }}</div>
+@if ($movimientos->hasPages())
+    <div class="pagination-wrapper">
+        {{ $movimientos->appends(request()->query())->links() }}
+    </div>
+@endif
 @endsection

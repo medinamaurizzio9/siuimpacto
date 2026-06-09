@@ -33,7 +33,7 @@ class ClienteController extends Controller
             ->when($ventas === 'sin_ventas', fn ($query) => $query->doesntHave('ventas'))
             ->latest()
             ->paginate($perPage)
-            ->withQueryString();
+            ->appends($request->query());
 
         return view('clientes.index', [
             'clientes' => $clientes,

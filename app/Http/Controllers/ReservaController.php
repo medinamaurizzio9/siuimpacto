@@ -26,7 +26,7 @@ class ReservaController extends Controller
         $this->applyFilters($query, $request, $visibility);
 
         return view('reservas.index', [
-            'reservas' => $query->paginate(15)->withQueryString(),
+            'reservas' => $query->paginate(15)->appends($request->query()),
             'vendedores' => $visibility->vendedores($request->user()),
             'tiposOperacion' => Reserva::TIPOS_OPERACION,
         ]);

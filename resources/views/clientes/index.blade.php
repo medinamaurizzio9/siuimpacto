@@ -94,5 +94,9 @@
     </table>
 </div>
 
-<div class="pagination">{{ $clientes->links() }}</div>
+@if ($clientes->hasPages())
+    <div class="pagination-wrapper">
+        {{ $clientes->appends(request()->query())->links() }}
+    </div>
+@endif
 @endsection

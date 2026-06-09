@@ -60,7 +60,7 @@ class TerrainListingEnhancementsTest extends TestCase
             ->assertDontSee('<th>Urbanizacion</th>', false);
     }
 
-    public function test_lotes_pagina_quince_y_conserva_filtros(): void
+    public function test_lotes_pagina_diez_y_conserva_filtros(): void
     {
         $manzano = $this->urbanizacion->manzanos()->firstOrFail();
 
@@ -79,9 +79,11 @@ class TerrainListingEnhancementsTest extends TestCase
             ->get(route('lotes.index', ['buscar' => 'PAG-']));
 
         $response->assertOk()->assertViewHas('lotes', function ($lotes) {
-            return $lotes->perPage() === 15 && $lotes->total() === 17;
+            return $lotes->perPage() === 10 && $lotes->total() === 17;
         });
-        $response->assertSee('buscar=PAG-', false);
+        $response->assertSee('pagination-wrapper', false)
+            ->assertSee('buscar=PAG-', false)
+            ->assertSee('page=2', false);
     }
 
     public function test_manzanos_filtra_por_urbanizacion_y_pagina_quince(): void

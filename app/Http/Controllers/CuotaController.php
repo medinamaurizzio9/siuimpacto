@@ -23,7 +23,7 @@ class CuotaController extends Controller
             $query->where('estado', 'vencida');
         }
 
-        return view('cuotas.index', ['cuotas' => $query->paginate(25)]);
+        return view('cuotas.index', ['cuotas' => $query->paginate(25)->appends($request->query())]);
     }
 
     public function update(PayCuotaRequest $request, Cuota $cuota, InstallmentService $installmentService): RedirectResponse

@@ -23,5 +23,9 @@
 @endforelse
 </tbody></table>
 </div>
-<div class="pagination">{{ $manzanos->links() }}</div>
+@if ($manzanos->hasPages())
+<div class="pagination-wrapper">
+    {{ $manzanos->appends(request()->query())->links() }}
+</div>
+@endif
 @endsection

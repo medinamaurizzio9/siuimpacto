@@ -24,13 +24,28 @@
 </form>
 
 <div class="table-scroll">
-<table class="table"><thead><tr><th>Lote</th><th>Manzano</th><th>Superficie</th><th>Precio total</th><th>Estado</th><th></th></tr></thead><tbody>
-@forelse ($lotes as $lote)
-<tr><td>{{ $lote->codigo }}</td><td>{{ $lote->manzano->codigo }}</td><td>{{ number_format($lote->superficie, 2) }}</td><td>{{ number_format($lote->precio, 2) }}</td><td><span class="badge {{ $lote->estado }}">{{ $lote->estado }}</span></td><td class="actions">@can('editar lotes')<a class="btn secondary" href="{{ route('lotes.edit', $lote) }}">Editar</a>@endcan @can('eliminar lotes')<form method="POST" action="{{ route('lotes.destroy', $lote) }}" onsubmit="return confirm('Confirma eliminar este lote?');">@csrf @method('DELETE')<button class="btn danger" type="submit">Eliminar</button></form>@endcan</td></tr>
-@empty
-<tr><td colspan="6">No se encontraron lotes con los filtros seleccionados.</td></tr>
-@endforelse
-</tbody></table>
+    <table class="table">
+        <thead><tr><th>Lote</th><th>Manzano</th><th>Superficie</th><th>Precio total</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+        @forelse ($lotes as $lote)
+            <tr>
+                <td>{{ $lote->codigo }}</td>
+                <td>{{ $lote->manzano->codigo }}</td>
+                <td>{{ number_format($lote->superficie, 2) }}</td>
+                <td>{{ number_format($lote->precio, 2) }}</td>
+                <td><span class="badge {{ $lote->estado }}">{{ $lote->estado }}</span></td>
+                <td class="actions">@can('editar lotes')<a class="btn secondary" href="{{ route('lotes.edit', $lote) }}">Editar</a>@endcan @can('eliminar lotes')<form method="POST" action="{{ route('lotes.destroy', $lote) }}" onsubmit="return confirm('Confirma eliminar este lote?');">@csrf @method('DELETE')<button class="btn danger" type="submit">Eliminar</button></form>@endcan</td>
+            </tr>
+        @empty
+            <tr><td colspan="6">No se encontraron lotes con los filtros seleccionados.</td></tr>
+        @endforelse
+        </tbody>
+    </table>
 </div>
-<div class="pagination">{{ $lotes->links() }}</div>
+
+@if ($lotes->hasPages())
+    <div class="pagination-wrapper">
+        {{ $lotes->links('pagination::bootstrap-5') }}
+    </div>
+@endif
 @endsection

@@ -31,5 +31,10 @@
 <td class="actions"><a class="btn secondary" href="{{ route('clientes.show', $reserva->cliente) }}">Ver detalle</a>@can('ver recibo reserva')@if($reserva->cashMovements->contains(fn($movimiento) => $movimiento->concepto === 'reserva' && $movimiento->estado !== 'anulado'))<a class="btn secondary" href="{{ route('reservas.recibo', $reserva) }}" target="_blank" rel="noopener">Recibo PDF</a>@endif @endcan @can('editar reservas')<a class="btn secondary" href="{{ route('reservas.edit', $reserva) }}">Editar</a>@endcan @can('cancelar reservas')<form method="POST" action="{{ route('reservas.expire', $reserva) }}" onsubmit="return confirm('Confirma marcar esta reserva como vencida?');">@csrf<button class="btn secondary">Vencer</button></form><form method="POST" action="{{ route('reservas.destroy', $reserva) }}" onsubmit="const m = prompt('Motivo obligatorio de cancelacion'); if(!m) return false; this.motivo.value=m; return confirm('Confirma cancelar esta reserva y liberar el lote?');">@csrf @method('DELETE')<input type="hidden" name="motivo"><button class="btn danger">Cancelar</button></form>@endcan</td>
 </tr>
 @endforeach
-</tbody></table><div class="pagination">{{ $reservas->links() }}</div>
+</tbody></table>
+@if ($reservas->hasPages())
+<div class="pagination-wrapper">
+    {{ $reservas->appends(request()->query())->links() }}
+</div>
+@endif
 @endsection
