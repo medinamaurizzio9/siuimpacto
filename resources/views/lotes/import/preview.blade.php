@@ -6,7 +6,6 @@
 @else
 <div class="status">Archivo valido. {{ count($rows) }} lotes listos para importar.</div>
 <form method="POST" action="{{ route('lotes.import.store') }}">@csrf
-<input type="hidden" name="rows" value="{{ e(json_encode($rows)) }}">
 <button class="btn" onclick="return confirm('Confirma importar estos lotes?')">Importar lotes</button>
 </form>
 @endif

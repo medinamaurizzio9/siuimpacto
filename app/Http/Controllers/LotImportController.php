@@ -20,15 +20,28 @@ class LotImportController extends Controller
         $request->validate(['csv' => ['required', 'file', 'mimes:csv,txt']]);
         $result = $importer->parse($request->file('csv'));
 
+        if (empty($result['errors'])) {
+            session(['lotes_import_rows' => $result['rows']]);
+        } else {
+            session()->forget('lotes_import_rows');
+        }
+
         return view('lotes.import.preview', $result);
     }
 
     public function store(Request $request, LotCsvImportService $importer, AuditService $auditService): RedirectResponse
     {
-        $rows = json_decode($request->input('rows', '[]'), true);
-        abort_if(! is_array($rows), 422, 'Datos de importacion invalidos.');
+        $rows = session('lotes_import_rows', []);
+
+        if (empty($rows) || ! is_array($rows)) {
+            return redirect()
+                ->route('lotes.import.create')
+                ->withErrors('No existen datos validos para importar.');
+        }
 
         $count = $importer->import($rows);
+        session()->forget('lotes_import_rows');
+
         $auditService->log(null, 'importar_lotes_csv', "Se importaron {$count} lotes.", null, ['total' => $count], $request);
 
         return redirect()->route('lotes.index')->with('status', "Se importaron {$count} lotes correctamente.");

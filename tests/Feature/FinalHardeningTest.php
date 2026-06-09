@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\CashMovement;
 use App\Models\Cliente;
 use App\Models\Lote;
+use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Services\LotCsvImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -94,6 +95,50 @@ IMPACTO CSV LEGACY,Z,02,300,60,18000,disponible,25,30,Importado');
 
         $result = app(LotCsvImportService::class)->parse($path);
         $this->assertNotEmpty($result['errors']);
+    }
+
+    public function test_confirmacion_de_importacion_usa_filas_guardadas_en_sesion(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacionId = Urbanizacion::firstOrFail()->id;
+        $path = $this->csvPath('urbanizacion,manzano,lote,superficie_m2,precio_m2,precio_total,cuota_inicial_tipo,cuota_inicial_valor,estado,coord_x,coord_y,observaciones
+IMPACTO CSV SESION,S,10,300,60,18000,monto,5000,disponible,25,30,Importado');
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacionId])
+            ->post(route('lotes.import.preview'), [
+                'csv' => new UploadedFile($path, 'lotes.csv', 'text/csv', null, true),
+            ])
+            ->assertOk()
+            ->assertSessionHas('lotes_import_rows');
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacionId])
+            ->post(route('lotes.import.store'))
+            ->assertRedirect(route('lotes.index'))
+            ->assertSessionHas('status', 'Se importaron 1 lotes correctamente.');
+
+        $this->assertDatabaseHas('lotes', [
+            'codigo' => '10',
+            'cuota_inicial_tipo' => 'monto',
+            'cuota_inicial_valor' => 5000,
+        ]);
+    }
+
+    public function test_confirmacion_de_importacion_sin_filas_redirige_con_mensaje_claro(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacionId = Urbanizacion::firstOrFail()->id;
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacionId])
+            ->post(route('lotes.import.store'))
+            ->assertRedirect(route('lotes.import.create'))
+            ->assertSessionHasErrors();
     }
 
     public function test_backup_command_se_ejecuta(): void

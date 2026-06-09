@@ -1,2 +1,2 @@
-urbanizacion,manzano,lote,superficie_m2,precio_m2,precio_total,estado,coord_x,coord_y,observaciones
-Colinas del Urubo,A,01,300,60,18000,disponible,25,30,Duplicado
+urbanizacion,manzano,lote,superficie_m2,precio_m2,precio_total,cuota_inicial_tipo,cuota_inicial_valor,estado,coord_x,coord_y,observaciones
+IMPACTO CSV SESION,S,10,300,60,18000,monto,5000,disponible,25,30,Importado
