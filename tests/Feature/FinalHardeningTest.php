@@ -86,6 +86,64 @@ IMPACTO CSV LEGACY,Z,02,300,60,18000,disponible,25,30,Importado');
         ]);
     }
 
+    public function test_importacion_csv_formato_antiguo_con_punto_y_coma_usa_urbanizacion_actual(): void
+    {
+        $this->seed();
+
+        $urbanizacion = Urbanizacion::firstOrFail();
+        session(['urbanizacion_id' => $urbanizacion->id]);
+
+        $path = $this->csvPath('manzano_codigo;lote_codigo;superficie;precio;cuota_inicial_tipo;cuota_inicial_valor;estado;fila;columna;coord_x;coord_y;observaciones
+ANT;05;200,00;20.000,00;monto;5.000,00;disponible;2;3;40,50;60,25;Formato antiguo');
+
+        $result = app(LotCsvImportService::class)->parse($path);
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame($urbanizacion->nombre, $result['rows'][0]['urbanizacion']);
+        $this->assertSame('ANT', $result['rows'][0]['manzano']);
+        $this->assertSame('05', $result['rows'][0]['lote']);
+        $this->assertSame('200.00', $result['rows'][0]['superficie_m2']);
+        $this->assertSame('20000.00', $result['rows'][0]['precio_total']);
+        $this->assertSame('100.00', $result['rows'][0]['precio_m2']);
+        $this->assertSame('5000.00', $result['rows'][0]['cuota_inicial_valor']);
+
+        $this->assertSame(1, app(LotCsvImportService::class)->import($result['rows']));
+        $this->assertDatabaseHas('lotes', [
+            'codigo' => '05',
+            'superficie' => 200,
+            'precio' => 20000,
+            'cuota_inicial_tipo' => 'monto',
+            'cuota_inicial_valor' => 5000,
+            'fila' => 2,
+            'columna' => 3,
+            'coord_x' => 40.5,
+            'coord_y' => 60.25,
+        ]);
+    }
+
+    public function test_importacion_csv_formato_nuevo_tambien_acepta_punto_y_coma(): void
+    {
+        $this->seed();
+
+        $path = $this->csvPath('urbanizacion;manzano;lote;superficie_m2;precio_m2;precio_total;cuota_inicial_tipo;cuota_inicial_valor;estado;coord_x;coord_y;observaciones
+IMPACTO CSV NUEVO SC;NSC;01;250,00;120,00;30.000,00;porcentaje;20,00;disponible;45,00;55,00;Nuevo con punto y coma');
+
+        $result = app(LotCsvImportService::class)->parse($path);
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame('250.00', $result['rows'][0]['superficie_m2']);
+        $this->assertSame('30000.00', $result['rows'][0]['precio_total']);
+        $this->assertSame('20.00', $result['rows'][0]['cuota_inicial_valor']);
+
+        $this->assertSame(1, app(LotCsvImportService::class)->import($result['rows']));
+        $this->assertDatabaseHas('lotes', [
+            'codigo' => '01',
+            'precio' => 30000,
+            'cuota_inicial_tipo' => 'porcentaje',
+            'cuota_inicial_valor' => 20,
+        ]);
+    }
+
     public function test_importacion_csv_rechaza_duplicados(): void
     {
         $this->seed();
