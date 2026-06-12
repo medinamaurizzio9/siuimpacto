@@ -55,15 +55,14 @@
         <div class="field">
             <label>Operacion</label>
             <select name="operation">
+                <option value="reemplazar_precio_oportunidad">Reemplazar Precio Oportunidad</option>
+                <option value="incrementar_precio_oportunidad_monto">Incrementar Precio Oportunidad por monto</option>
+                <option value="incrementar_precio_oportunidad_porcentaje">Incrementar Precio Oportunidad por porcentaje</option>
                 <option value="reemplazar_cuota">Reemplazar cuota inicial</option>
                 <option value="incrementar_cuota_monto">Incrementar cuota inicial por monto</option>
-                <option value="reemplazar_precio_real">Reemplazar precio real</option>
-                <option value="incrementar_precio_real_monto">Incrementar precio real por monto</option>
-                <option value="incrementar_precio_real_porcentaje">Incrementar precio real por porcentaje</option>
-                <option value="limpiar_precio_real">Limpiar precio real personalizado</option>
             </select>
         </div>
-        <div class="field"><label>Valor</label><input name="valor" type="number" step="0.01" min="0" placeholder="No requerido para limpiar"></div>
+        <div class="field"><label>Valor</label><input name="valor" type="number" step="0.01" min="0"></div>
         <div class="field full"><button class="btn" type="submit">Aplicar actualizacion masiva</button></div>
     </form>
 </div>
@@ -80,17 +79,14 @@
                 <td>{{ $lote->codigo }}</td>
                 <td>{{ $lote->manzano->codigo }}</td>
                 <td>{{ number_format($lote->superficie, 2) }} m2</td>
-                <td>{{ $pricingService->formatUsd((float) $lote->precio) }}</td>
                 <td>
                     @if($isAdminLotes)
-                        <input class="inline-money-input" form="{{ $quickFormId }}" name="precio_real_usd" type="number" step="0.01" min="{{ $lote->precio }}" value="{{ number_format($pricePayload['credit_usd'], 2, '.', '') }}" aria-label="Precio Real">
+                        <input class="inline-money-input" form="{{ $quickFormId }}" name="precio_oportunidad_usd" type="number" step="0.01" min="0" value="{{ number_format((float) $lote->precio, 2, '.', '') }}" aria-label="Precio Oportunidad">
                     @else
-                        {{ $pricingService->formatUsd($pricePayload['credit_usd']) }}
-                    @endif
-                    @if($lote->precio_real_override_usd !== null)
-                        <span class="mini-badge">Personalizado</span>
+                        {{ $pricingService->formatUsd((float) $lote->precio) }}
                     @endif
                 </td>
+                <td>{{ $pricingService->formatUsd($pricePayload['credit_usd']) }}</td>
                 <td>
                     @if($isAdminLotes)
                         <input class="inline-money-input" form="{{ $quickFormId }}" name="cuota_inicial_valor" type="number" step="0.01" min="0" value="{{ number_format((float) $lote->cuota_inicial_valor, 2, '.', '') }}" aria-label="Cuota Inicial">

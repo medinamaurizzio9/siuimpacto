@@ -4,13 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Lote;
 use App\Services\AuditService;
-use App\Services\LotPricingService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class LoteCommercialUpdateController extends Controller
 {
@@ -20,32 +18,26 @@ class LoteCommercialUpdateController extends Controller
         abort_unless(UrbanizacionContext::loteBelongsToCurrent($lote), 403, 'No tienes acceso a esta urbanizacion');
 
         $data = $request->validate([
-            'precio_real_usd' => ['required', 'numeric', 'min:0'],
+            'precio_oportunidad_usd' => ['required', 'numeric', 'min:0'],
             'cuota_inicial_valor' => ['required', 'numeric', 'min:0'],
         ]);
 
-        if ((float) $data['precio_real_usd'] < (float) $lote->precio) {
-            throw ValidationException::withMessages([
-                'precio_real_usd' => 'El precio real no puede ser menor al precio oportunidad.',
-            ]);
-        }
-
         DB::transaction(function () use ($lote, $data, $request, $auditService): void {
-            $before = $lote->only(['precio_real_override_usd', 'cuota_inicial_tipo', 'cuota_inicial_valor']);
+            $before = $lote->only(['precio', 'cuota_inicial_tipo', 'cuota_inicial_valor']);
             $lote->update([
-                'precio_real_override_usd' => (float) $data['precio_real_usd'],
+                'precio' => (float) $data['precio_oportunidad_usd'],
                 'cuota_inicial_tipo' => 'monto',
                 'cuota_inicial_valor' => (float) $data['cuota_inicial_valor'],
             ]);
 
-            $auditService->log($lote, 'edicion_rapida_precio_real', 'Edicion rapida de precio real del lote.', [
+            $auditService->log($lote, 'edicion_rapida_precio_oportunidad', 'Edicion rapida de precio oportunidad del lote.', [
                 'lote_id' => $lote->id,
-                'campo' => 'precio_real_override_usd',
-                'valor_anterior' => $before['precio_real_override_usd'],
+                'campo' => 'precio',
+                'valor_anterior' => $before['precio'],
             ], [
                 'lote_id' => $lote->id,
-                'campo' => 'precio_real_override_usd',
-                'valor_nuevo' => $lote->precio_real_override_usd,
+                'campo' => 'precio',
+                'valor_nuevo' => $lote->precio,
             ], $request);
 
             $auditService->log($lote, 'edicion_rapida_cuota_inicial', 'Edicion rapida de cuota inicial del lote.', [
@@ -62,15 +54,15 @@ class LoteCommercialUpdateController extends Controller
         return back()->with('status', 'Datos comerciales del lote actualizados correctamente.');
     }
 
-    public function bulkUpdate(Request $request, LotPricingService $pricingService, AuditService $auditService): RedirectResponse
+    public function bulkUpdate(Request $request, AuditService $auditService): RedirectResponse
     {
         $this->authorizeAdmin($request);
 
         $data = $request->validate([
             'scope' => ['required', 'in:actual,todos,filtrados,manzano'],
             'manzano_id' => ['nullable', 'integer', 'exists:manzanos,id'],
-            'operation' => ['required', 'in:reemplazar_cuota,incrementar_cuota_monto,reemplazar_precio_real,incrementar_precio_real_monto,incrementar_precio_real_porcentaje,limpiar_precio_real'],
-            'valor' => ['nullable', 'numeric', 'min:0'],
+            'operation' => ['required', 'in:reemplazar_precio_oportunidad,incrementar_precio_oportunidad_monto,incrementar_precio_oportunidad_porcentaje,reemplazar_cuota,incrementar_cuota_monto'],
+            'valor' => ['required', 'numeric', 'min:0'],
             'buscar' => ['nullable', 'string'],
             'estado' => ['nullable', 'string'],
             'superficie_desde' => ['nullable', 'numeric', 'min:0'],
@@ -78,10 +70,6 @@ class LoteCommercialUpdateController extends Controller
             'precio_desde' => ['nullable', 'numeric', 'min:0'],
             'precio_hasta' => ['nullable', 'numeric', 'min:0'],
         ]);
-
-        if ($data['operation'] !== 'limpiar_precio_real' && ! $request->filled('valor')) {
-            throw ValidationException::withMessages(['valor' => 'Ingresa el valor para aplicar la actualizacion masiva.']);
-        }
 
         if ($data['scope'] === 'manzano') {
             $request->validate(['manzano_id' => ['required', 'integer', 'exists:manzanos,id']]);
@@ -95,13 +83,22 @@ class LoteCommercialUpdateController extends Controller
         $lotes = $this->bulkQuery($request)->orderBy('id')->get();
         $value = (float) ($data['valor'] ?? 0);
 
-        DB::transaction(function () use ($lotes, $data, $value, $pricingService, $auditService, $request): void {
+        DB::transaction(function () use ($lotes, $data, $value, $auditService, $request): void {
             foreach ($lotes as $lote) {
-                $before = $lote->only(['precio_real_override_usd', 'cuota_inicial_tipo', 'cuota_inicial_valor']);
+                $before = $lote->only(['precio', 'cuota_inicial_tipo', 'cuota_inicial_valor']);
                 $updates = [];
                 $accion = null;
 
                 match ($data['operation']) {
+                    'reemplazar_precio_oportunidad' => [$updates, $accion] = [[
+                        'precio' => $value,
+                    ], 'actualizacion_masiva_precio_oportunidad'],
+                    'incrementar_precio_oportunidad_monto' => [$updates, $accion] = [[
+                        'precio' => max(0, (float) $lote->precio + $value),
+                    ], 'actualizacion_masiva_precio_oportunidad'],
+                    'incrementar_precio_oportunidad_porcentaje' => [$updates, $accion] = [[
+                        'precio' => round((float) $lote->precio * (1 + $value / 100), 2),
+                    ], 'actualizacion_masiva_precio_oportunidad'],
                     'reemplazar_cuota' => [$updates, $accion] = [[
                         'cuota_inicial_tipo' => 'monto',
                         'cuota_inicial_valor' => $value,
@@ -110,35 +107,19 @@ class LoteCommercialUpdateController extends Controller
                         'cuota_inicial_tipo' => 'monto',
                         'cuota_inicial_valor' => max(0, (float) $lote->cuota_inicial_valor + $value),
                     ], 'actualizacion_masiva_cuota_inicial'],
-                    'reemplazar_precio_real' => [$updates, $accion] = [[
-                        'precio_real_override_usd' => $value,
-                    ], 'actualizacion_masiva_precio_real'],
-                    'incrementar_precio_real_monto' => [$updates, $accion] = [[
-                        'precio_real_override_usd' => $pricingService->creditUsd($lote) + $value,
-                    ], 'actualizacion_masiva_precio_real'],
-                    'incrementar_precio_real_porcentaje' => [$updates, $accion] = [[
-                        'precio_real_override_usd' => round($pricingService->creditUsd($lote) * (1 + $value / 100), 2),
-                    ], 'actualizacion_masiva_precio_real'],
-                    'limpiar_precio_real' => [$updates, $accion] = [[
-                        'precio_real_override_usd' => null,
-                    ], 'limpiar_precio_real_personalizado'],
                 };
 
-                if (array_key_exists('precio_real_override_usd', $updates) && $updates['precio_real_override_usd'] !== null && (float) $updates['precio_real_override_usd'] < (float) $lote->precio) {
-                    throw ValidationException::withMessages([
-                        'valor' => 'El precio real no puede ser menor al precio oportunidad del lote '.$lote->codigo.'.',
-                    ]);
-                }
-
                 $lote->update($updates);
+                $fresh = $lote->fresh();
+                $auditField = array_key_exists('precio', $updates) ? 'precio' : 'cuota_inicial_valor';
                 $auditService->log($lote, $accion, 'Actualizacion comercial masiva de lote.', [
                     'lote_id' => $lote->id,
-                    'campo' => array_key_first($updates),
-                    'valor_anterior' => $before[array_key_first($updates)] ?? null,
+                    'campo' => $auditField,
+                    'valor_anterior' => $before[$auditField] ?? null,
                 ], [
                     'lote_id' => $lote->id,
-                    'campo' => array_key_first($updates),
-                    'valor_nuevo' => $lote->fresh()->{array_key_first($updates)},
+                    'campo' => $auditField,
+                    'valor_nuevo' => $fresh->{$auditField},
                     'operacion' => $data['operation'],
                 ], $request);
             }
