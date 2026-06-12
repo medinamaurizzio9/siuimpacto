@@ -17,6 +17,7 @@ class Lote extends Model
         'codigo',
         'superficie',
         'precio',
+        'precio_real_override_usd',
         'cuota_inicial_tipo',
         'cuota_inicial_valor',
         'estado',
@@ -30,6 +31,7 @@ class Lote extends Model
     protected function casts(): array
     {
         return [
+            'precio_real_override_usd' => 'decimal:2',
             'cuota_inicial_valor' => 'decimal:2',
         ];
     }

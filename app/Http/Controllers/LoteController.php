@@ -17,21 +17,20 @@ class LoteController extends Controller
     public function index(Request $request): View
     {
         $query = UrbanizacionContext::lotes(Lote::with('manzano'));
+        $filteredCountQuery = UrbanizacionContext::lotes(Lote::query());
 
-        $query
-            ->when($request->filled('buscar'), fn ($query) => $query->where('codigo', 'like', '%'.$request->string('buscar')->trim().'%'))
-            ->when($request->filled('manzano_id'), fn ($query) => $query->where('manzano_id', $request->integer('manzano_id')))
-            ->when($request->filled('estado'), fn ($query) => $query->where('estado', $request->string('estado')->toString()))
-            ->when($request->filled('superficie_desde'), fn ($query) => $query->where('superficie', '>=', $request->input('superficie_desde')))
-            ->when($request->filled('superficie_hasta'), fn ($query) => $query->where('superficie', '<=', $request->input('superficie_hasta')))
-            ->when($request->filled('precio_desde'), fn ($query) => $query->where('precio', '>=', $request->input('precio_desde')))
-            ->when($request->filled('precio_hasta'), fn ($query) => $query->where('precio', '<=', $request->input('precio_hasta')));
+        $this->applyFilters($query, $request);
+        $this->applyFilters($filteredCountQuery, $request);
 
         return view('lotes.index', [
             'urbanizacion' => UrbanizacionContext::current(),
             'manzanos' => Manzano::where('urbanizacion_id', UrbanizacionContext::currentId())->orderBy('codigo')->get(),
             'estados' => Lote::ESTADOS,
             'lotes' => $query->orderBy('manzano_id')->orderBy('codigo')->paginate(10)->appends($request->query()),
+            'bulkCounts' => [
+                'todos' => UrbanizacionContext::lotes(Lote::query())->count(),
+                'filtrados' => $filteredCountQuery->count(),
+            ],
         ]);
     }
 
@@ -111,5 +110,17 @@ class LoteController extends Controller
             'manzanos' => Manzano::with('urbanizacion')->where('urbanizacion_id', UrbanizacionContext::currentId())->orderBy('codigo')->get(),
             'estados' => Lote::ESTADOS,
         ];
+    }
+
+    private function applyFilters($query, Request $request): void
+    {
+        $query
+            ->when($request->filled('buscar'), fn ($query) => $query->where('codigo', 'like', '%'.$request->string('buscar')->trim().'%'))
+            ->when($request->filled('manzano_id'), fn ($query) => $query->where('manzano_id', $request->integer('manzano_id')))
+            ->when($request->filled('estado'), fn ($query) => $query->where('estado', $request->string('estado')->toString()))
+            ->when($request->filled('superficie_desde'), fn ($query) => $query->where('superficie', '>=', $request->input('superficie_desde')))
+            ->when($request->filled('superficie_hasta'), fn ($query) => $query->where('superficie', '<=', $request->input('superficie_hasta')))
+            ->when($request->filled('precio_desde'), fn ($query) => $query->where('precio', '>=', $request->input('precio_desde')))
+            ->when($request->filled('precio_hasta'), fn ($query) => $query->where('precio', '<=', $request->input('precio_hasta')));
     }
 }

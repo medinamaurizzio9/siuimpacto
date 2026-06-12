@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\GrupoComercialController;
 use App\Http\Controllers\LoteController;
+use App\Http\Controllers\LoteCommercialUpdateController;
 use App\Http\Controllers\LotImportController;
 use App\Http\Controllers\ManzanoController;
 use App\Http\Controllers\MapaController;
@@ -70,6 +71,8 @@ Route::middleware('auth')->group(function (): void {
 
         Route::resource('urbanizaciones', UrbanizacionController::class)->parameters(['urbanizaciones' => 'urbanizacion'])->except('show')->middlewareFor(['index'], 'can:ver lotes')->middlewareFor(['create', 'store'], 'can:crear urbanizaciones')->middlewareFor(['edit', 'update'], 'can:editar urbanizaciones')->middlewareFor(['destroy'], 'can:eliminar urbanizaciones');
         Route::resource('manzanos', ManzanoController::class)->except('show')->middlewareFor(['index'], 'can:ver lotes')->middlewareFor(['create', 'store'], 'can:crear manzanos')->middlewareFor(['edit', 'update'], 'can:editar manzanos')->middlewareFor(['destroy'], 'can:eliminar manzanos');
+        Route::patch('/lotes/{lote}/comercial-rapido', [LoteCommercialUpdateController::class, 'updateQuick'])->middleware('can:ver lotes')->name('lotes.comercial-rapido');
+        Route::post('/lotes/comercial-masivo', [LoteCommercialUpdateController::class, 'bulkUpdate'])->middleware('can:ver lotes')->name('lotes.comercial-masivo');
         Route::resource('lotes', LoteController::class)->middlewareFor(['index', 'show'], 'can:ver lotes')->middlewareFor(['create', 'store'], 'can:crear lotes')->middlewareFor(['edit', 'update'], 'can:editar lotes')->middlewareFor(['destroy'], 'can:eliminar lotes');
         Route::get('/clientes/buscar', [ClienteController::class, 'buscar'])->middleware('can:ver clientes')->name('clientes.buscar');
         Route::resource('clientes', ClienteController::class)->middlewareFor(['index', 'show'], 'can:ver clientes')->middlewareFor(['create', 'store'], 'can:crear clientes')->middlewareFor(['edit', 'update'], 'can:editar clientes')->middlewareFor(['destroy'], 'can:eliminar clientes');

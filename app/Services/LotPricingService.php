@@ -19,6 +19,10 @@ class LotPricingService
     {
         $base = $this->baseUsd($lote);
 
+        if ($lote->precio_real_override_usd !== null) {
+            return max(0, round((float) $lote->precio_real_override_usd - $base, 2));
+        }
+
         return $this->settings->incrementoCreditoTipo() === 'porcentaje'
             ? round($base * $this->settings->incrementoCreditoValor() / 100, 2)
             : round($this->settings->incrementoCreditoValor(), 2);
@@ -26,6 +30,10 @@ class LotPricingService
 
     public function creditUsd(Lote $lote): float
     {
+        if ($lote->precio_real_override_usd !== null) {
+            return round((float) $lote->precio_real_override_usd, 2);
+        }
+
         return round($this->baseUsd($lote) + $this->creditIncrementUsd($lote), 2);
     }
 
