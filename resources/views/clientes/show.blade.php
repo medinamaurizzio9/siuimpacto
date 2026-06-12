@@ -21,7 +21,7 @@
 <div class="card">
     <h2>{{ $cliente->nombre }}</h2>
     <p><strong>Documento:</strong> {{ $cliente->documento }}</p>
-    <p><strong>Telefono:</strong> {{ $cliente->telefono }}</p>
+    <p><strong>Telefono:</strong> @include('clientes.partials.whatsapp-link', ['cliente' => $cliente])</p>
     <p><strong>Email:</strong> {{ $cliente->email }}</p>
     <p><strong>Direccion:</strong> {{ $cliente->direccion }}</p>
     <p><strong>Urbanizacion:</strong> {{ $cliente->urbanizacion?->nombre }}</p>

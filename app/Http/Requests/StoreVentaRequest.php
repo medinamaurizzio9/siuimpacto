@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Reserva;
 
 class StoreVentaRequest extends FormRequest
 {
@@ -18,6 +19,7 @@ class StoreVentaRequest extends FormRequest
         return [
             'lote_id' => ['required', 'exists:lotes,id'],
             'cliente_id' => ['required', 'exists:clientes,id'],
+            'tipo_operacion' => ['required', 'in:'.implode(',', Reserva::TIPOS_OPERACION)],
             'fecha_venta' => ['required', 'date'],
             'precio_final' => ['required', 'numeric', 'min:0'],
             'cuota_inicial' => ['nullable', 'numeric', 'min:0', 'lte:precio_final'],
@@ -29,6 +31,15 @@ class StoreVentaRequest extends FormRequest
             'admin_confirma_reserva' => ['nullable', 'boolean'],
             'motivo_cambio' => [$this->isMethod('post') ? 'nullable' : 'required', 'string', 'max:1000'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('tipo_operacion')) {
+            $this->merge([
+                'tipo_operacion' => (int) $this->input('numero_cuotas', 0) > 0 ? 'credito' : 'contado',
+            ]);
+        }
     }
 
     public function messages(): array

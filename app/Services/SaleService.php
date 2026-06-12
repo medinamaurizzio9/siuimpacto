@@ -15,7 +15,8 @@ class SaleService
         private LotService $lotService,
         private InstallmentService $installmentService,
         private CashMovementService $cashMovementService,
-        private AuditService $auditService
+        private AuditService $auditService,
+        private LotPricingService $pricingService
     ) {
     }
 
@@ -30,6 +31,7 @@ class SaleService
                 $data['reserva_id'] = $reserva->id;
             }
 
+            $data = $this->applyCommercialPricing($data, $lote, true);
             $data['saldo_financiar'] = (int) ($data['numero_cuotas'] ?? 0) === 0
                 ? 0
                 : max(0, (float) $data['precio_final'] - (float) ($data['cuota_inicial'] ?? 0));
@@ -105,6 +107,7 @@ class SaleService
                 $this->lotService->ensureCanSell($newLot, (int) $data['cliente_id'], (bool) ($data['admin_confirma_reserva'] ?? false));
             }
 
+            $data = $this->applyCommercialPricing($data, $newLot, false);
             $venta->update(collect($data)->except(['metodo_pago', 'referencia', 'admin_confirma_reserva', 'motivo_cambio'])->all());
             $installmentChanges = $changesInstallmentStructure
                 ? $this->installmentService->resyncForSale($venta->fresh())
@@ -147,5 +150,27 @@ class SaleService
 
             return $venta->fresh();
         });
+    }
+
+    private function applyCommercialPricing(array $data, Lote $lote, bool $forceAmounts): array
+    {
+        $tipoOperacion = $data['tipo_operacion'] ?? ((int) ($data['numero_cuotas'] ?? 0) > 0 ? 'credito' : 'contado');
+        $payload = $this->pricingService->payload($lote);
+        $operationUsd = $this->pricingService->operationUsd($lote, $tipoOperacion);
+        $initialUsd = $this->pricingService->initialUsd($lote, $operationUsd);
+
+        if ($forceAmounts) {
+            $data['precio_final'] = $operationUsd;
+            $data['cuota_inicial'] = $initialUsd;
+        }
+
+        $data['tipo_operacion'] = $tipoOperacion;
+        $data['precio_base_usd'] = $payload['base_usd'];
+        $data['incremento_credito_aplicado'] = $tipoOperacion === 'credito' ? $payload['credit_increment_usd'] : 0;
+        $data['precio_final_usd'] = $forceAmounts ? $operationUsd : (float) ($data['precio_final'] ?? $operationUsd);
+        $data['precio_final_bs'] = $this->pricingService->bs((float) $data['precio_final_usd']);
+        $data['tipo_cambio_usd_bs'] = $payload['tipo_cambio_usd_bs'];
+
+        return $data;
     }
 }

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', $systemSettings['system_name'] ?? 'IMPACTO URBANIZACIONES')</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <style>:root{--primary:{{ $systemSettings['primary_color'] ?? '#0f766e' }};--secondary:{{ $systemSettings['secondary_color'] ?? '#0f2530' }};}</style>
 </head>

@@ -8,6 +8,7 @@
 </head>
 <body>
 <main class="public-page">
+    @inject('pricingService', 'App\Services\LotPricingService')
     <div class="public-header">
         <div>
             <h1>IMPACTO URBANIZACIONES</h1>
@@ -92,7 +93,10 @@
                         <td>{{ $lote->manzano->codigo }}</td>
                         <td>{{ $lote->codigo }}</td>
                         <td>{{ number_format($lote->superficie, 2) }} m2</td>
-                        @if($urbanizacion->mostrar_precio_publico)<td>{{ number_format($lote->precio, 2) }}</td>@endif
+                        @if($urbanizacion->mostrar_precio_publico)
+                            @php($pricePayload = $pricingService->payload($lote))
+                            <td>{{ $pricingService->formatUsd($pricePayload['credit_usd']) }}<br><span class="muted">{{ $pricingService->formatBs($pricePayload['credit_bs']) }}</span></td>
+                        @endif
                         <td><span class="badge {{ $lote->estado }}">{{ $lote->estado }}</span></td>
                         <td>@if($lote->estado === 'disponible')<a class="btn secondary" href="#consulta">Consultar con asesor</a>@endif</td>
                     </tr>

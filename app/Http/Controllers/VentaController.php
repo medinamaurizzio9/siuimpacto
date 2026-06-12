@@ -58,7 +58,7 @@ class VentaController extends Controller
     {
         abort_if($request->user()->hasAnyRole(['vendedor', 'supervisor']), 403, 'Los asesores solo pueden crear reservas. No tienen permiso para registrar ventas.');
 
-        $venta = new Venta(['fecha_venta' => now(), 'numero_cuotas' => 12, 'estado' => 'activa']);
+        $venta = new Venta(['fecha_venta' => now(), 'numero_cuotas' => 12, 'estado' => 'activa', 'tipo_operacion' => 'credito']);
         if ($request->filled('cliente_id')) {
             $cliente = Cliente::findOrFail($request->integer('cliente_id'));
             abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');

@@ -68,7 +68,7 @@
                 <tr>
                     <td>{{ $cliente->nombre }}</td>
                     <td>{{ $cliente->documento }}</td>
-                    <td>{{ $cliente->telefono }}</td>
+                    <td>@include('clientes.partials.whatsapp-link', ['cliente' => $cliente])</td>
                     <td>{{ $cliente->email }}</td>
                     <td>{{ $cliente->ventas_count }}</td>
                     <td class="actions">

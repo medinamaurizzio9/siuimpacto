@@ -69,6 +69,7 @@
                 <th>Fecha</th>
                 <th>Cliente</th>
                 <th>Lote</th>
+                <th>Tipo operacion</th>
                 <th>Precio</th>
                 <th>Cuota inicial</th>
                 <th>Saldo</th>
@@ -83,7 +84,8 @@
                     <td>{{ $venta->fecha_venta->format('d/m/Y') }}</td>
                     <td>{{ $venta->cliente->nombre }}</td>
                     <td>{{ $venta->lote->manzano->codigo }}-{{ $venta->lote->codigo }}</td>
-                    <td>{{ number_format($venta->precio_final, 2) }}</td>
+                    <td>{{ $venta->tipo_operacion ?: 'Sin registrar' }}</td>
+                    <td>{{ number_format((float) ($venta->precio_final_usd ?? $venta->precio_final), 2) }}<br><span class="muted">Bs {{ $venta->precio_final_bs ? number_format((float) $venta->precio_final_bs, 2) : 'Sin registrar' }}</span></td>
                     <td>{{ number_format($venta->cuota_inicial, 2) }}</td>
                     <td>{{ number_format($venta->saldo_financiar, 2) }}</td>
                     <td>{{ $venta->cuotas->count() }}</td>
@@ -106,7 +108,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="empty-table">No se encontraron ventas con los filtros aplicados.</td>
+                    <td colspan="10" class="empty-table">No se encontraron ventas con los filtros aplicados.</td>
                 </tr>
             @endforelse
         </tbody>

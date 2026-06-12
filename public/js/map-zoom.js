@@ -191,7 +191,9 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         lote: modal.querySelector('[data-modal-lote]'),
         superficie: modal.querySelector('[data-modal-superficie]'),
         precio: modal.querySelector('[data-modal-precio]'),
+        precioBs: modal.querySelector('[data-modal-precio-bs]'),
         cuotaInicial: modal.querySelector('[data-modal-cuota-inicial]'),
+        cuotaInicialBs: modal.querySelector('[data-modal-cuota-inicial-bs]'),
         estado: modal.querySelector('[data-modal-estado]'),
         message: modal.querySelector('[data-modal-message]'),
     };
@@ -239,7 +241,9 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         write(fields.lote, point.dataset.lote);
         write(fields.superficie, point.dataset.superficie);
         write(fields.precio, point.dataset.precio);
+        write(fields.precioBs, point.dataset.precioBs);
         write(fields.cuotaInicial, point.dataset.cuotaInicial);
+        write(fields.cuotaInicialBs, point.dataset.cuotaInicialBs);
         write(fields.estado, point.dataset.estado);
 
         if (fields.estado) {
