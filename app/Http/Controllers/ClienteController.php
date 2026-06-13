@@ -19,6 +19,7 @@ class ClienteController extends Controller
         $perPage = $this->perPage($request);
         $search = trim((string) $request->query('q', ''));
         $ventas = (string) $request->query('ventas', '');
+        $sort = $this->sort($request);
 
         $clientes = UrbanizacionContext::clientes(Cliente::withCount('ventas'), $urbanizacionId)
             ->when($search !== '', function ($query) use ($search): void {
@@ -31,7 +32,7 @@ class ClienteController extends Controller
             })
             ->when($ventas === 'con_ventas', fn ($query) => $query->has('ventas'))
             ->when($ventas === 'sin_ventas', fn ($query) => $query->doesntHave('ventas'))
-            ->latest()
+            ->when($sort['field'] === 'ventas', fn ($query) => $query->orderBy('ventas_count', $sort['direction']), fn ($query) => $query->orderBy($sort['field'], $sort['direction']))
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -161,8 +162,19 @@ class ClienteController extends Controller
 
     private function perPage(Request $request): int
     {
-        $perPage = $request->integer('per_page', 15);
+        $perPage = $request->integer('per_page', 50);
 
-        return in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 15;
+        return in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 50;
+    }
+
+    private function sort(Request $request): array
+    {
+        $allowedSorts = ['nombre', 'documento', 'telefono', 'email', 'ventas'];
+        $field = $request->query('sort', 'nombre');
+
+        return [
+            'field' => in_array($field, $allowedSorts, true) ? $field : 'nombre',
+            'direction' => $request->query('direction') === 'desc' ? 'desc' : 'asc',
+        ];
     }
 }

@@ -23,6 +23,7 @@ class LotCsvImportService
         $headers = array_map(fn ($h) => $this->normalizeHeader($h), $headers);
         $rows = [];
         $errors = [];
+        $seenRows = [];
         $line = 1;
 
         $acceptedHeaders = [self::HEADERS, self::LEGACY_HEADERS, self::OLD_HEADERS];
@@ -35,7 +36,7 @@ class LotCsvImportService
         while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
             $line++;
             $row = $this->normalizeRow(array_combine($activeHeaders, array_pad($data, count($activeHeaders), null)) ?: [], $headers);
-            $rowErrors = $this->validateRow($row, $line);
+            $rowErrors = $this->validateRow($row, $line, $seenRows);
 
             if ($rowErrors) {
                 $errors = [...$errors, ...$rowErrors];
@@ -83,7 +84,7 @@ class LotCsvImportService
         return $count;
     }
 
-    private function validateRow(array $row, int $line): array
+    private function validateRow(array $row, int $line, array &$seenRows): array
     {
         $errors = [];
         foreach (['urbanizacion', 'manzano', 'lote'] as $field) {
@@ -120,13 +121,27 @@ class LotCsvImportService
             }
         }
 
-        $urbanizacion = Urbanizacion::where('nombre', trim((string) $row['urbanizacion']))->first();
+        $urbanizacionName = trim((string) $row['urbanizacion']);
+        $manzanoCodigo = trim((string) $row['manzano']);
+        $loteCodigo = trim((string) $row['lote']);
+
+        if ($urbanizacionName !== '' && $manzanoCodigo !== '' && $loteCodigo !== '') {
+            $key = strtolower($urbanizacionName.'|'.$manzanoCodigo.'|'.$loteCodigo);
+
+            if (isset($seenRows[$key])) {
+                $errors[] = "Linea {$line}: Ya existe un lote con ese código en este manzano dentro del CSV.";
+            }
+
+            $seenRows[$key] = $line;
+        }
+
+        $urbanizacion = Urbanizacion::where('nombre', $urbanizacionName)->first();
         $manzano = $urbanizacion
-            ? Manzano::where('urbanizacion_id', $urbanizacion->id)->where('codigo', trim((string) $row['manzano']))->first()
+            ? Manzano::where('urbanizacion_id', $urbanizacion->id)->where('codigo', $manzanoCodigo)->first()
             : null;
 
-        if ($manzano && Lote::where('manzano_id', $manzano->id)->where('codigo', trim((string) $row['lote']))->exists()) {
-            $errors[] = "Linea {$line}: el lote ya existe en ese manzano y urbanizacion.";
+        if ($manzano && Lote::where('manzano_id', $manzano->id)->where('codigo', $loteCodigo)->exists()) {
+            $errors[] = "Linea {$line}: Ya existe un lote con ese código en este manzano.";
         }
 
         return $errors;

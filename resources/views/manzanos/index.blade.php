@@ -15,7 +15,7 @@
 </form>
 
 <div class="table-scroll">
-<table class="table"><thead><tr><th>Código</th><th>Nombre</th><th>Lotes</th><th></th></tr></thead><tbody>
+<table class="table"><thead><tr><th><x-sort-link field="codigo">Código</x-sort-link></th><th><x-sort-link field="nombre">Nombre</x-sort-link></th><th><x-sort-link field="lotes_count">Lotes</x-sort-link></th><th></th></tr></thead><tbody>
 @forelse ($manzanos as $manzano)
 <tr><td>{{ $manzano->codigo }}</td><td>{{ $manzano->nombre }}</td><td>{{ $manzano->lotes_count }}</td><td class="actions">@can('editar manzanos')<a class="btn secondary" href="{{ route('manzanos.edit', $manzano) }}">Editar</a>@endcan @can('eliminar manzanos')<form method="POST" action="{{ route('manzanos.destroy', $manzano) }}" onsubmit="return confirm('Confirma eliminar este manzano?');">@csrf @method('DELETE')<button class="btn danger" type="submit">Eliminar</button></form>@endcan</td></tr>
 @empty

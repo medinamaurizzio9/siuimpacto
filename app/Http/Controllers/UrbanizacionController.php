@@ -3,10 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Urbanizacion;
+use App\Services\PlanImageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class UrbanizacionController extends Controller
@@ -58,7 +59,7 @@ class UrbanizacionController extends Controller
             'propietario' => ['nullable', 'string', 'max:255'],
             'ubicacion' => ['nullable', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string'],
-            'plano_imagen' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'plano_imagen' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:51200'],
             'superficie_total' => ['nullable', 'numeric', 'min:0'],
             'estado' => ['required', 'in:activa,pausada,cerrada'],
             'mostrar_precio_publico' => ['nullable', 'boolean'],
@@ -67,13 +68,25 @@ class UrbanizacionController extends Controller
         $data['mostrar_precio_publico'] = $request->boolean('mostrar_precio_publico');
 
         if ($request->hasFile('plano_imagen')) {
-            if ($urbanizacion?->plano_imagen) {
-                Storage::disk('public')->delete($urbanizacion->plano_imagen);
+            $planImageService = app(PlanImageService::class);
+
+            try {
+                $storedPlan = $planImageService->store($request->file('plano_imagen'));
+            } catch (\RuntimeException) {
+                throw ValidationException::withMessages([
+                    'plano_imagen' => 'No se pudo convertir el PDF. Suba una imagen JPG o PNG en alta resolución.',
+                ]);
             }
 
-            $data['plano_imagen'] = $request->file('plano_imagen')->store('planos', 'public');
+            if ($urbanizacion?->plano_imagen || $urbanizacion?->plano_archivo_original) {
+                $planImageService->delete($urbanizacion->plano_imagen, $urbanizacion->plano_archivo_original);
+            }
+
+            $data['plano_imagen'] = $storedPlan['plano_imagen'];
+            $data['plano_archivo_original'] = $storedPlan['plano_archivo_original'];
         } else {
             unset($data['plano_imagen']);
+            unset($data['plano_archivo_original']);
         }
 
         $data['slug'] = $this->uniqueSlug($data['nombre'], $urbanizacion);

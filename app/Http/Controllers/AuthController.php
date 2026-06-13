@@ -14,6 +14,11 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
+    public function showLoginForm(): View
+    {
+        return $this->showLogin();
+    }
+
     public function login(Request $request): RedirectResponse
     {
         $credentials = $request->validate([

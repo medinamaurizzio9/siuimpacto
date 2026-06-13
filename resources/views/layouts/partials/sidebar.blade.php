@@ -140,7 +140,7 @@
             <div @class(['sidebar-group', 'open' => $isOpen, 'active' => $isOpen]) data-menu-key="administracion">
                 <button class="sidebar-group-toggle" type="button" data-menu-toggle aria-expanded="{{ $isOpen ? 'true' : 'false' }}"><span>=</span> Administracion</button>
                 <div class="sidebar-submenu">
-                    <a @class(['sidebar-link', 'active' => $active('admin.usuarios')]) href="{{ route('admin.usuarios') }}">Usuarios</a>
+                    <a @class(['sidebar-link', 'active' => $active(['admin.usuarios', 'admin.usuarios.*'])]) href="{{ route('admin.usuarios') }}">Usuarios</a>
                     <a @class(['sidebar-link', 'active' => $active('admin.roles')]) href="{{ route('admin.roles') }}">Roles y permisos</a>
                     <a @class(['sidebar-link', 'active' => $active('admin.configuracion-general')]) href="{{ route('admin.configuracion-general') }}">Configuracion general</a>
                     <a @class(['sidebar-link', 'active' => $active('admin.configuracion')]) href="{{ route('admin.configuracion') }}">Configuracion comercial</a>

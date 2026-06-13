@@ -42,7 +42,11 @@ class LoteCommercialUpdateTest extends TestCase
             ->assertSee('Editar rapido')
             ->assertSee('Actualizacion Masiva')
             ->assertSee('precio_oportunidad_usd')
-            ->assertDontSee('precio_real_usd');
+            ->assertSee('Seleccionar todos')
+            ->assertDontSee('precio_real_usd')
+            ->assertDontSee('Todos los lotes de la urbanizacion actual')
+            ->assertDontSee('Solo lotes filtrados actualmente')
+            ->assertDontSee('Solo manzano seleccionado');
 
         $vendedor = User::where('email', 'vendedor@impacto.test')->firstOrFail();
         $urbanizacion = $vendedor->urbanizacionesAsignadas()->firstOrFail();
@@ -121,7 +125,7 @@ class LoteCommercialUpdateTest extends TestCase
         $this->actingAs($vendedor)
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
             ->post(route('lotes.comercial-masivo'), [
-                'scope' => 'todos',
+                'lote_ids' => [$lote->id],
                 'operation' => 'reemplazar_cuota',
                 'valor' => 5000,
             ])
@@ -136,8 +140,7 @@ class LoteCommercialUpdateTest extends TestCase
         $this->actingAs($this->admin)
             ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
             ->post(route('lotes.comercial-masivo'), [
-                'scope' => 'filtrados',
-                'buscar' => $lote->codigo,
+                'lote_ids' => [$lote->id],
                 'operation' => 'incrementar_precio_oportunidad_monto',
                 'valor' => 1000,
             ])
@@ -161,8 +164,7 @@ class LoteCommercialUpdateTest extends TestCase
         $this->actingAs($this->admin)
             ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
             ->post(route('lotes.comercial-masivo'), [
-                'scope' => 'manzano',
-                'manzano_id' => $lote->manzano_id,
+                'lote_ids' => [$lote->id],
                 'operation' => 'reemplazar_cuota',
                 'valor' => 4000,
             ])
@@ -178,6 +180,19 @@ class LoteCommercialUpdateTest extends TestCase
             'modelo_id' => $lote->id,
             'accion' => 'actualizacion_masiva_cuota_inicial',
         ]);
+    }
+
+    public function test_actualizacion_masiva_requiere_lotes_seleccionados(): void
+    {
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->from(route('lotes.index'))
+            ->post(route('lotes.comercial-masivo'), [
+                'operation' => 'reemplazar_cuota',
+                'valor' => 4000,
+            ])
+            ->assertRedirect(route('lotes.index'))
+            ->assertSessionHasErrors(['lote_ids' => 'Seleccione al menos un lote.']);
     }
 
     public function test_mapa_muestra_precio_real_recalculado(): void

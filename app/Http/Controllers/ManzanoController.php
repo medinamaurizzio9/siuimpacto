@@ -13,6 +13,7 @@ class ManzanoController extends Controller
 {
     public function index(Request $request): View
     {
+        $sort = $this->sort($request);
         $query = Manzano::withCount('lotes')
             ->where('urbanizacion_id', UrbanizacionContext::currentId())
             ->when($request->filled('buscar'), function ($query) use ($request) {
@@ -23,7 +24,7 @@ class ManzanoController extends Controller
 
         return view('manzanos.index', [
             'urbanizacion' => UrbanizacionContext::current(),
-            'manzanos' => $query->orderBy('codigo')->paginate(15)->appends($request->query()),
+            'manzanos' => $query->orderBy($sort['field'], $sort['direction'])->paginate(50)->appends($request->query()),
         ]);
     }
 
@@ -81,5 +82,16 @@ class ManzanoController extends Controller
             'nombre' => ['nullable', 'string', 'max:255'],
             'orden' => ['nullable', 'integer', 'min:0'],
         ]);
+    }
+
+    private function sort(Request $request): array
+    {
+        $allowedSorts = ['codigo', 'nombre', 'lotes_count'];
+        $field = $request->query('sort', 'codigo');
+
+        return [
+            'field' => in_array($field, $allowedSorts, true) ? $field : 'codigo',
+            'direction' => $request->query('direction') === 'desc' ? 'desc' : 'asc',
+        ];
     }
 }

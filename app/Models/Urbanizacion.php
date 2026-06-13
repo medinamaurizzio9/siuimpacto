@@ -20,6 +20,7 @@ class Urbanizacion extends Model
         'ubicacion',
         'descripcion',
         'plano_imagen',
+        'plano_archivo_original',
         'superficie_total',
         'estado',
         'mostrar_precio_publico',

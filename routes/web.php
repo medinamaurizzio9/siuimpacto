@@ -23,6 +23,7 @@ use App\Http\Controllers\PublicDisponibilidadController;
 use App\Http\Controllers\PublicReceiptVerificationController;
 use App\Http\Controllers\SupervisorController;
 use App\Http\Controllers\SystemSettingController;
+use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\UrbanizacionAssignmentController;
 use App\Http\Controllers\UrbanizacionController;
 use App\Http\Controllers\UrbanizacionSelectionController;
@@ -34,7 +35,8 @@ Route::get('/u/{slug}', [PublicDisponibilidadController::class, 'showBySlug'])->
 Route::get('/recibos/verificar/{numero}', PublicReceiptVerificationController::class)->name('recibos.verificar');
 
 Route::middleware('guest')->group(function (): void {
-    Route::get('/', [AuthController::class, 'showLogin'])->name('login');
+    Route::get('/', [AuthController::class, 'showLogin']);
+    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 });
 
@@ -108,13 +110,11 @@ Route::middleware('auth')->group(function (): void {
             Route::get('/{reporte}/csv', [ReportController::class, 'csv'])->middleware('can:exportar reportes')->name('csv');
         });
         Route::middleware('can:administrar usuarios')->prefix('administracion')->name('admin.')->group(function (): void {
-    Route::get('/usuarios', function () {
-        $users = \App\Models\User::with('roles')
-            ->orderBy('id')
-            ->paginate(15);
-
-        return view('administracion.usuarios.index', compact('users'));
-    })->name('usuarios');
+    Route::get('/usuarios', [UsuarioController::class, 'index'])->name('usuarios');
+    Route::get('/usuarios/create', [UsuarioController::class, 'create'])->name('usuarios.create');
+    Route::post('/usuarios', [UsuarioController::class, 'store'])->name('usuarios.store');
+    Route::get('/usuarios/{usuario}/edit', [UsuarioController::class, 'edit'])->name('usuarios.edit');
+    Route::put('/usuarios/{usuario}', [UsuarioController::class, 'update'])->name('usuarios.update');
 
     Route::get('/roles-permisos', function () {
         $roles = \Spatie\Permission\Models\Role::with('permissions')

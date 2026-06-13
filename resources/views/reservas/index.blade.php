@@ -16,7 +16,7 @@
 <div class="field"><label>Hasta</label><input type="date" name="hasta" value="{{ request('hasta') }}"></div>
 <div class="field"><label>&nbsp;</label><button class="btn">Filtrar</button></div>
 </form>
-<table class="table"><thead><tr><th>Cliente</th><th>Documento</th><th>Lote</th><th>Tipo</th><th>Reserva</th><th>Vence</th><th>Monto</th><th>Estado</th><th>Asesor</th><th></th></tr></thead><tbody>
+<table class="table"><thead><tr><th><x-sort-link field="cliente">Cliente</x-sort-link></th><th>Documento</th><th><x-sort-link field="lote">Lote</x-sort-link></th><th>Tipo</th><th><x-sort-link field="fecha">Reserva</x-sort-link></th><th>Vence</th><th>Monto</th><th><x-sort-link field="estado">Estado</x-sort-link></th><th>Asesor</th><th></th></tr></thead><tbody>
 @foreach($reservas as $reserva)
 <tr>
 <td>{{ $reserva->cliente->nombre }}</td>

@@ -21,6 +21,7 @@ class VentaController extends Controller
         $estado = (string) $request->query('estado', '');
         $fechaDesde = (string) $request->query('fecha_desde', '');
         $fechaHasta = (string) $request->query('fecha_hasta', '');
+        $sort = $this->sort($request);
 
         $ventas = UrbanizacionContext::ventas(Venta::with('cliente', 'lote.manzano.urbanizacion', 'cuotas'))
             ->when($search !== '', function ($query) use ($search): void {
@@ -38,7 +39,7 @@ class VentaController extends Controller
             ->when($estado !== '', fn ($query) => $query->where('estado', $estado))
             ->when($fechaDesde !== '', fn ($query) => $query->whereDate('fecha_venta', '>=', $fechaDesde))
             ->when($fechaHasta !== '', fn ($query) => $query->whereDate('fecha_venta', '<=', $fechaHasta))
-            ->latest()
+            ->tap(fn ($query) => $this->applySorting($query, $sort['field'], $sort['direction']))
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -154,8 +155,31 @@ class VentaController extends Controller
 
     private function perPage(Request $request): int
     {
-        $perPage = $request->integer('per_page', 15);
+        $perPage = $request->integer('per_page', 50);
 
-        return in_array($perPage, [15, 30, 50, 100], true) ? $perPage : 15;
+        return in_array($perPage, [15, 30, 50, 100], true) ? $perPage : 50;
+    }
+
+    private function sort(Request $request): array
+    {
+        $allowedSorts = ['fecha', 'cliente', 'lote', 'tipo', 'monto', 'estado'];
+        $field = $request->query('sort', 'fecha');
+
+        return [
+            'field' => in_array($field, $allowedSorts, true) ? $field : 'fecha',
+            'direction' => $request->query('direction') === 'asc' ? 'asc' : 'desc',
+        ];
+    }
+
+    private function applySorting($query, string $field, string $direction): void
+    {
+        match ($field) {
+            'fecha' => $query->orderBy('fecha_venta', $direction),
+            'cliente' => $query->orderBy(Cliente::select('nombre')->whereColumn('clientes.id', 'ventas.cliente_id'), $direction),
+            'lote' => $query->orderBy(Lote::select('codigo')->whereColumn('lotes.id', 'ventas.lote_id'), $direction),
+            'tipo' => $query->orderBy('tipo_operacion', $direction),
+            'monto' => $query->orderBy('precio_final_usd', $direction),
+            'estado' => $query->orderBy('estado', $direction),
+        };
     }
 }

@@ -90,4 +90,27 @@ class AuthSecurityTest extends TestCase
             ->get(route('password.change'))
             ->assertRedirect(route('urbanizaciones.select'));
     }
+
+    public function test_logout_por_post_cierra_sesion_y_redirige_a_login(): void
+    {
+        $this->seed();
+
+        $user = User::where('email', 'admin@impacto.test')->firstOrFail();
+
+        $this->actingAs($user)
+            ->post(route('logout'))
+            ->assertRedirect(route('login'));
+
+        $this->assertGuest();
+    }
+
+    public function test_menu_no_usa_logout_por_get(): void
+    {
+        $source = file_get_contents(resource_path('views/layouts/partials/sidebar.blade.php'));
+
+        $this->assertStringContainsString('method="POST"', $source);
+        $this->assertStringContainsString("route('logout')", $source);
+        $this->assertStringNotContainsString('href="{{ route(\'logout\') }}"', $source);
+        $this->assertStringNotContainsString('href="/logout"', $source);
+    }
 }

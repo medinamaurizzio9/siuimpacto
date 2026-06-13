@@ -2,8 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Cliente;
+use App\Models\Lote;
+use App\Models\Manzano;
+use App\Models\Reserva;
 use App\Models\Urbanizacion;
 use App\Models\User;
+use App\Models\Venta;
 use Illuminate\Testing\TestResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -31,6 +36,105 @@ class ListadoFiltrosPaginacionTest extends TestCase
             ->assertSee('Limpiar')
             ->assertSee('Mostrando')
             ->assertSee('Mariela');
+    }
+
+    public function test_listados_principales_paginan_50_por_defecto(): void
+    {
+        [$admin, $urbanizacion] = $this->seedContext();
+
+        $responses = [
+            $this->actingAs($admin)->withSession(['urbanizacion_id' => $urbanizacion->id])->get(route('lotes.index')),
+            $this->actingAs($admin)->withSession(['urbanizacion_id' => $urbanizacion->id])->get(route('clientes.index')),
+            $this->actingAs($admin)->withSession(['urbanizacion_id' => $urbanizacion->id])->get(route('reservas.index')),
+            $this->actingAs($admin)->withSession(['urbanizacion_id' => $urbanizacion->id])->get(route('ventas.index')),
+            $this->actingAs($admin)->withSession(['urbanizacion_id' => $urbanizacion->id])->get(route('manzanos.index')),
+            $this->actingAs($admin)->withSession(['urbanizacion_id' => $urbanizacion->id])->get(route('admin.usuarios')),
+        ];
+
+        foreach ($responses as $response) {
+            $response->assertOk();
+        }
+
+        $this->assertSame(50, $responses[0]->viewData('lotes')->perPage());
+        $this->assertSame(50, $responses[1]->viewData('clientes')->perPage());
+        $this->assertSame(50, $responses[2]->viewData('reservas')->perPage());
+        $this->assertSame(50, $responses[3]->viewData('ventas')->perPage());
+        $this->assertSame(50, $responses[4]->viewData('manzanos')->perPage());
+        $this->assertSame(50, $responses[5]->viewData('users')->perPage());
+    }
+
+    public function test_ordenamiento_ascendente_y_descendente_funciona_en_lotes(): void
+    {
+        [$admin, $urbanizacion] = $this->seedContext();
+        $manzano = Manzano::where('urbanizacion_id', $urbanizacion->id)->firstOrFail();
+
+        Lote::create([
+            'manzano_id' => $manzano->id,
+            'codigo' => 'AAA-ORDEN',
+            'superficie' => 100,
+            'precio' => 1000,
+            'estado' => 'disponible',
+        ]);
+        Lote::create([
+            'manzano_id' => $manzano->id,
+            'codigo' => 'ZZZ-ORDEN',
+            'superficie' => 100,
+            'precio' => 1000,
+            'estado' => 'disponible',
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('lotes.index', ['buscar' => 'ORDEN', 'sort' => 'codigo', 'direction' => 'asc']))
+            ->assertOk()
+            ->assertSeeInOrder(['AAA-ORDEN', 'ZZZ-ORDEN']);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('lotes.index', ['buscar' => 'ORDEN', 'sort' => 'codigo', 'direction' => 'desc']))
+            ->assertOk()
+            ->assertSeeInOrder(['ZZZ-ORDEN', 'AAA-ORDEN']);
+    }
+
+    public function test_filtros_se_mantienen_al_ordenar(): void
+    {
+        [$admin, $urbanizacion] = $this->seedContext();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('clientes.index', ['q' => 'Mariela', 'ventas' => 'con_ventas']))
+            ->assertOk()
+            ->assertSee('q=Mariela', false)
+            ->assertSee('ventas=con_ventas', false)
+            ->assertSee('sort=nombre', false)
+            ->assertSee('direction=asc', false);
+    }
+
+    public function test_ordenamiento_por_campos_relacionados_funciona(): void
+    {
+        [$admin, $urbanizacion] = $this->seedContext();
+        $manzano = Manzano::where('urbanizacion_id', $urbanizacion->id)->firstOrFail();
+        $loteA = Lote::create(['manzano_id' => $manzano->id, 'codigo' => 'L-A-REL', 'superficie' => 100, 'precio' => 1000, 'estado' => 'disponible']);
+        $loteZ = Lote::create(['manzano_id' => $manzano->id, 'codigo' => 'L-Z-REL', 'superficie' => 100, 'precio' => 1000, 'estado' => 'disponible']);
+        $clienteA = Cliente::create(['urbanizacion_id' => $urbanizacion->id, 'nombre' => 'Ana Orden Relacion', 'documento' => 'REL-A']);
+        $clienteZ = Cliente::create(['urbanizacion_id' => $urbanizacion->id, 'nombre' => 'Zoe Orden Relacion', 'documento' => 'REL-Z']);
+
+        Reserva::create(['cliente_id' => $clienteZ->id, 'lote_id' => $loteZ->id, 'usuario_id' => $admin->id, 'fecha_reserva' => now(), 'fecha_vencimiento' => now()->addDay(), 'monto_reserva' => 100, 'estado' => 'activa', 'tipo_operacion' => 'contado']);
+        Reserva::create(['cliente_id' => $clienteA->id, 'lote_id' => $loteA->id, 'usuario_id' => $admin->id, 'fecha_reserva' => now(), 'fecha_vencimiento' => now()->addDay(), 'monto_reserva' => 100, 'estado' => 'activa', 'tipo_operacion' => 'contado']);
+        Venta::create(['cliente_id' => $clienteZ->id, 'lote_id' => $loteZ->id, 'user_id' => $admin->id, 'fecha_venta' => now(), 'precio_final' => 1000, 'precio_final_usd' => 1000, 'cuota_inicial' => 100, 'saldo_financiar' => 900, 'numero_cuotas' => 1, 'estado' => 'activa', 'tipo_operacion' => 'contado']);
+        Venta::create(['cliente_id' => $clienteA->id, 'lote_id' => $loteA->id, 'user_id' => $admin->id, 'fecha_venta' => now(), 'precio_final' => 1000, 'precio_final_usd' => 1000, 'cuota_inicial' => 100, 'saldo_financiar' => 900, 'numero_cuotas' => 1, 'estado' => 'activa', 'tipo_operacion' => 'contado']);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('reservas.index', ['sort' => 'cliente', 'direction' => 'asc']))
+            ->assertOk()
+            ->assertSeeInOrder(['Ana Orden Relacion', 'Zoe Orden Relacion']);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('ventas.index', ['sort' => 'cliente', 'direction' => 'desc']))
+            ->assertOk()
+            ->assertSeeInOrder(['Zoe Orden Relacion', 'Ana Orden Relacion']);
     }
 
     public function test_ventas_pagina_resultados(): void
@@ -163,13 +267,20 @@ class ListadoFiltrosPaginacionTest extends TestCase
 
     private function getAsAdmin(string $url): TestResponse
     {
-        $this->seed();
-
-        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
-        $urbanizacion = Urbanizacion::where('estado', 'activa')->firstOrFail();
+        [$admin, $urbanizacion] = $this->seedContext();
 
         return $this->actingAs($admin)
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
             ->get($url);
+    }
+
+    private function seedContext(): array
+    {
+        $this->seed();
+
+        return [
+            User::where('email', 'admin@impacto.test')->firstOrFail(),
+            Urbanizacion::where('estado', 'activa')->firstOrFail(),
+        ];
     }
 }

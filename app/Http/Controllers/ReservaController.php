@@ -20,13 +20,15 @@ class ReservaController extends Controller
 {
     public function index(Request $request, ReservationVisibilityService $visibility): View
     {
-        $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano.urbanizacion', 'usuario', 'cashMovements'))->latest();
+        $query = UrbanizacionContext::reservas(Reserva::with('cliente', 'lote.manzano.urbanizacion', 'usuario', 'cashMovements'));
+        $sort = $this->sort($request);
         $visibility->apply($query, $request->user());
 
         $this->applyFilters($query, $request, $visibility);
+        $this->applySorting($query, $sort['field'], $sort['direction']);
 
         return view('reservas.index', [
-            'reservas' => $query->paginate(15)->appends($request->query()),
+            'reservas' => $query->paginate(50)->appends($request->query()),
             'vendedores' => $visibility->vendedores($request->user()),
             'tiposOperacion' => Reserva::TIPOS_OPERACION,
         ]);
@@ -170,5 +172,26 @@ class ReservaController extends Controller
                 ->get(),
             'tiposOperacion' => Reserva::TIPOS_OPERACION,
         ];
+    }
+
+    private function sort(Request $request): array
+    {
+        $allowedSorts = ['fecha', 'cliente', 'lote', 'estado'];
+        $field = $request->query('sort', 'fecha');
+
+        return [
+            'field' => in_array($field, $allowedSorts, true) ? $field : 'fecha',
+            'direction' => $request->query('direction') === 'asc' ? 'asc' : 'desc',
+        ];
+    }
+
+    private function applySorting($query, string $field, string $direction): void
+    {
+        match ($field) {
+            'fecha' => $query->orderBy('fecha_reserva', $direction),
+            'cliente' => $query->orderBy(Cliente::select('nombre')->whereColumn('clientes.id', 'reservas.cliente_id'), $direction),
+            'lote' => $query->orderBy(Lote::select('codigo')->whereColumn('lotes.id', 'reservas.lote_id'), $direction),
+            'estado' => $query->orderBy('estado', $direction),
+        };
     }
 }

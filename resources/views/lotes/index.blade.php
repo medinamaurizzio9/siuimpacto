@@ -9,11 +9,12 @@
     </div>
     <div class="actions">
         @can('exportar reportes')<a class="btn secondary" href="{{ route('export.csv', 'lotes') }}">Exportar CSV</a>@endcan
-        @if($isAdminLotes)<a class="btn secondary" href="#actualizacion-masiva-lotes">Actualizacion Masiva</a>@endif
+        @if($isAdminLotes)<button class="btn secondary" type="button" id="open-bulk-lotes">Actualizacion Masiva</button>@endif
         @can('crear lotes')<a class="btn secondary" href="{{ route('lotes.import.create') }}">Importar</a><a class="btn" href="{{ route('lotes.create') }}">Nuevo</a>@endcan
     </div>
 </div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
+@if ($errors->any()) <div class="errors">{{ $errors->first() }}</div> @endif
 
 <form class="filter-form card" method="GET" action="{{ route('lotes.index') }}">
     <div class="field"><label>Buscar lote/código</label><input name="buscar" value="{{ request('buscar') }}" placeholder="Ej. L-15"></div>
@@ -27,31 +28,13 @@
 </form>
 
 @if($isAdminLotes)
-<div class="card" id="actualizacion-masiva-lotes" style="margin-bottom:18px;">
+<div class="card bulk-lotes-panel" id="actualizacion-masiva-lotes" hidden>
     <h2>Actualizacion Masiva</h2>
-    <p class="muted">Antes de aplicar: todos los lotes de la urbanizacion actual: {{ $bulkCounts['todos'] }}. Lotes filtrados actualmente: {{ $bulkCounts['filtrados'] }}.</p>
-    <form class="form compact" method="POST" action="{{ route('lotes.comercial-masivo') }}" onsubmit="return confirm('Confirma aplicar la actualizacion masiva?');">
+    <p class="muted">Cantidad de lotes seleccionados: <strong id="selected-lotes-count">0</strong></p>
+    <div class="errors" id="bulk-lotes-message" hidden>Seleccione al menos un lote.</div>
+    <form class="form compact" method="POST" action="{{ route('lotes.comercial-masivo') }}">
         @csrf
-        @foreach(['buscar', 'estado', 'superficie_desde', 'superficie_hasta', 'precio_desde', 'precio_hasta'] as $filter)
-            <input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">
-        @endforeach
-        <div class="field">
-            <label>Alcance</label>
-            <select name="scope">
-                <option value="todos">Todos los lotes de la urbanizacion actual ({{ $bulkCounts['todos'] }})</option>
-                <option value="filtrados">Solo lotes filtrados actualmente ({{ $bulkCounts['filtrados'] }})</option>
-                <option value="manzano">Solo manzano seleccionado</option>
-            </select>
-        </div>
-        <div class="field">
-            <label>Manzano</label>
-            <select name="manzano_id">
-                <option value="">Selecciona si el alcance es manzano</option>
-                @foreach($manzanos as $manzano)
-                    <option value="{{ $manzano->id }}" @selected((string) request('manzano_id') === (string) $manzano->id)>{{ $manzano->codigo }} {{ $manzano->nombre }}</option>
-                @endforeach
-            </select>
-        </div>
+        <div id="selected-lotes-inputs"></div>
         <div class="field">
             <label>Operacion</label>
             <select name="operation">
@@ -70,12 +53,13 @@
 
 <div class="table-scroll">
     <table class="table">
-        <thead><tr><th>Lote</th><th>Manzano</th><th>Superficie</th><th>Precio Oportunidad</th><th>Precio Real</th><th>Cuota inicial</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr>@if($isAdminLotes)<th><label class="bulk-check"><input type="checkbox" id="select-all-lotes"> <span>Seleccionar todos</span></label></th>@endif<th><x-sort-link field="codigo">Lote</x-sort-link></th><th><x-sort-link field="manzano">Manzano</x-sort-link></th><th><x-sort-link field="superficie">Superficie</x-sort-link></th><th><x-sort-link field="precio">Precio Oportunidad</x-sort-link></th><th><x-sort-link field="precio_real">Precio Real</x-sort-link></th><th><x-sort-link field="cuota_inicial">Cuota inicial</x-sort-link></th><th><x-sort-link field="estado">Estado</x-sort-link></th><th></th></tr></thead>
         <tbody>
         @forelse ($lotes as $lote)
             @php($pricePayload = $pricingService->payload($lote))
             @php($quickFormId = 'lote-comercial-'.$lote->id)
             <tr>
+                @if($isAdminLotes)<td><input class="lote-bulk-checkbox" type="checkbox" value="{{ $lote->id }}" aria-label="Seleccionar lote {{ $lote->codigo }}"></td>@endif
                 <td>{{ $lote->codigo }}</td>
                 <td>{{ $lote->manzano->codigo }}</td>
                 <td>{{ number_format($lote->superficie, 2) }} m2</td>
@@ -107,7 +91,7 @@
                     @can('editar lotes')<a class="btn secondary" href="{{ route('lotes.edit', $lote) }}">Editar</a>@endcan @can('eliminar lotes')<form method="POST" action="{{ route('lotes.destroy', $lote) }}" onsubmit="return confirm('Confirma eliminar este lote?');">@csrf @method('DELETE')<button class="btn danger" type="submit">Eliminar</button></form>@endcan</td>
             </tr>
         @empty
-            <tr><td colspan="8">No se encontraron lotes con los filtros seleccionados.</td></tr>
+            <tr><td colspan="{{ $isAdminLotes ? 9 : 8 }}">No se encontraron lotes con los filtros seleccionados.</td></tr>
         @endforelse
         </tbody>
     </table>
@@ -117,5 +101,65 @@
     <div class="pagination-wrapper">
         {{ $lotes->links('pagination::bootstrap-5') }}
     </div>
+@endif
+
+@if($isAdminLotes)
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const panel = document.getElementById('actualizacion-masiva-lotes');
+    const openButton = document.getElementById('open-bulk-lotes');
+    const selectAll = document.getElementById('select-all-lotes');
+    const checkboxes = Array.from(document.querySelectorAll('.lote-bulk-checkbox'));
+    const count = document.getElementById('selected-lotes-count');
+    const inputs = document.getElementById('selected-lotes-inputs');
+    const message = document.getElementById('bulk-lotes-message');
+
+    function selectedIds() {
+        return checkboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+    }
+
+    function syncSelection() {
+        const ids = selectedIds();
+        count.textContent = ids.length;
+        inputs.innerHTML = ids.map((id) => `<input type="hidden" name="lote_ids[]" value="${id}">`).join('');
+        message.hidden = ids.length > 0;
+        if (selectAll) {
+            selectAll.checked = checkboxes.length > 0 && ids.length === checkboxes.length;
+            selectAll.indeterminate = ids.length > 0 && ids.length < checkboxes.length;
+        }
+    }
+
+    openButton?.addEventListener('click', () => {
+        panel.hidden = false;
+        syncSelection();
+        if (selectedIds().length === 0) {
+            message.hidden = false;
+        }
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    selectAll?.addEventListener('change', () => {
+        checkboxes.forEach((checkbox) => checkbox.checked = selectAll.checked);
+        syncSelection();
+    });
+
+    checkboxes.forEach((checkbox) => checkbox.addEventListener('change', syncSelection));
+
+    panel?.querySelector('form')?.addEventListener('submit', (event) => {
+        syncSelection();
+        if (selectedIds().length === 0) {
+            event.preventDefault();
+            message.hidden = false;
+            return;
+        }
+
+        if (!confirm('Confirma aplicar la actualizacion masiva?')) {
+            event.preventDefault();
+        }
+    });
+
+    syncSelection();
+});
+</script>
 @endif
 @endsection

@@ -17,20 +17,16 @@ class LoteController extends Controller
     public function index(Request $request): View
     {
         $query = UrbanizacionContext::lotes(Lote::with('manzano'));
-        $filteredCountQuery = UrbanizacionContext::lotes(Lote::query());
+        $sort = $this->sort($request);
 
         $this->applyFilters($query, $request);
-        $this->applyFilters($filteredCountQuery, $request);
+        $this->applySorting($query, $sort['field'], $sort['direction']);
 
         return view('lotes.index', [
             'urbanizacion' => UrbanizacionContext::current(),
             'manzanos' => Manzano::where('urbanizacion_id', UrbanizacionContext::currentId())->orderBy('codigo')->get(),
             'estados' => Lote::ESTADOS,
-            'lotes' => $query->orderBy('manzano_id')->orderBy('codigo')->paginate(10)->appends($request->query()),
-            'bulkCounts' => [
-                'todos' => UrbanizacionContext::lotes(Lote::query())->count(),
-                'filtrados' => $filteredCountQuery->count(),
-            ],
+            'lotes' => $query->paginate(50)->appends($request->query()),
         ]);
     }
 
@@ -122,5 +118,28 @@ class LoteController extends Controller
             ->when($request->filled('superficie_hasta'), fn ($query) => $query->where('superficie', '<=', $request->input('superficie_hasta')))
             ->when($request->filled('precio_desde'), fn ($query) => $query->where('precio', '>=', $request->input('precio_desde')))
             ->when($request->filled('precio_hasta'), fn ($query) => $query->where('precio', '<=', $request->input('precio_hasta')));
+    }
+
+    private function sort(Request $request): array
+    {
+        $allowedSorts = ['codigo', 'manzano', 'superficie', 'precio', 'precio_real', 'cuota_inicial', 'estado'];
+        $field = $request->query('sort', 'manzano');
+
+        return [
+            'field' => in_array($field, $allowedSorts, true) ? $field : 'manzano',
+            'direction' => $request->query('direction') === 'desc' ? 'desc' : 'asc',
+        ];
+    }
+
+    private function applySorting($query, string $field, string $direction): void
+    {
+        match ($field) {
+            'codigo' => $query->orderBy('codigo', $direction),
+            'manzano' => $query->orderBy(Manzano::select('codigo')->whereColumn('manzanos.id', 'lotes.manzano_id'), $direction)->orderBy('codigo'),
+            'superficie' => $query->orderBy('superficie', $direction),
+            'precio', 'precio_real' => $query->orderBy('precio', $direction),
+            'cuota_inicial' => $query->orderBy('cuota_inicial_valor', $direction),
+            'estado' => $query->orderBy('estado', $direction),
+        };
     }
 }

@@ -36,7 +36,33 @@ class PlanoMapaTest extends TestCase
 
         $urbanizacion = Urbanizacion::where('nombre', 'Plano Demo')->firstOrFail();
         $this->assertNotNull($urbanizacion->plano_imagen);
+        $this->assertNull($urbanizacion->plano_archivo_original);
         Storage::disk('public')->assertExists($urbanizacion->plano_imagen);
+    }
+
+    public function test_pdf_sin_conversor_muestra_error_amigable(): void
+    {
+        Storage::fake('public');
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->from(route('urbanizaciones.edit', $urbanizacion))
+            ->put(route('urbanizaciones.update', $urbanizacion), [
+                'nombre' => $urbanizacion->nombre,
+                'ubicacion' => $urbanizacion->ubicacion,
+                'descripcion' => $urbanizacion->descripcion,
+                'superficie_total' => $urbanizacion->superficie_total,
+                'estado' => $urbanizacion->estado,
+                'plano_imagen' => UploadedFile::fake()->create('plano.pdf', 100, 'application/pdf'),
+            ])
+            ->assertRedirect(route('urbanizaciones.edit', $urbanizacion))
+            ->assertSessionHasErrors([
+                'plano_imagen' => 'No se pudo convertir el PDF. Suba una imagen JPG o PNG en alta resolución.',
+            ]);
     }
 
     public function test_admin_puede_guardar_coordenadas_de_lote(): void

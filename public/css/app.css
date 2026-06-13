@@ -88,6 +88,9 @@ a { color: inherit; text-decoration: none; }
 .table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dce4e8; border-radius: 8px; overflow: hidden; }
 .table th, .table td { padding: 12px 14px; border-bottom: 1px solid #e8edf0; text-align: left; vertical-align: top; }
 .table th { background: #eef3f4; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #4d5d64; }
+.sort-link { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; cursor: pointer; }
+.sort-link:hover, .sort-link.active { color: var(--primary); }
+.sort-indicator { font-weight: 900; }
 .actions { display: flex; gap: 8px; align-items: center; }
 .context-title { margin: 0 0 5px; color: #0f766e; font-size: 14px; font-weight: 800; }
 .filter-form { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 14px; align-items: end; max-width: none; margin-bottom: 18px; padding: 16px; }
@@ -292,6 +295,23 @@ textarea { min-height: 90px; resize: vertical; }
     color:#075985;
     font-size:12px;
     font-weight:800;
+}
+.bulk-lotes-panel{
+    margin-bottom:18px;
+    border:2px solid #b8ddd8;
+}
+.bulk-check{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    min-width:150px;
+    font-weight:800;
+}
+.lote-bulk-checkbox,
+.bulk-check input{
+    width:18px;
+    height:18px;
+    accent-color:#0f766e;
 }
 @media (max-width: 850px) {
     .shell { grid-template-columns: 1fr; }

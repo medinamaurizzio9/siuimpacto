@@ -60,11 +60,11 @@ class TerrainListingEnhancementsTest extends TestCase
             ->assertDontSee('<th>Urbanizacion</th>', false);
     }
 
-    public function test_lotes_pagina_diez_y_conserva_filtros(): void
+    public function test_lotes_pagina_cincuenta_y_conserva_filtros(): void
     {
         $manzano = $this->urbanizacion->manzanos()->firstOrFail();
 
-        foreach (range(1, 17) as $numero) {
+        foreach (range(1, 57) as $numero) {
             Lote::create([
                 'manzano_id' => $manzano->id,
                 'codigo' => 'PAG-'.str_pad((string) $numero, 2, '0', STR_PAD_LEFT),
@@ -79,7 +79,7 @@ class TerrainListingEnhancementsTest extends TestCase
             ->get(route('lotes.index', ['buscar' => 'PAG-']));
 
         $response->assertOk()->assertViewHas('lotes', function ($lotes) {
-            return $lotes->perPage() === 10 && $lotes->total() === 17;
+            return $lotes->perPage() === 50 && $lotes->total() === 57;
         });
         $response->assertSee('pagination-wrapper', false)
             ->assertSee('buscar=PAG-', false)
@@ -188,12 +188,12 @@ class TerrainListingEnhancementsTest extends TestCase
         ]);
     }
 
-    public function test_manzanos_filtra_por_urbanizacion_y_pagina_quince(): void
+    public function test_manzanos_filtra_por_urbanizacion_y_pagina_cincuenta(): void
     {
         $otraUrbanizacion = Urbanizacion::whereKeyNot($this->urbanizacion->id)->firstOrFail();
         Manzano::create(['urbanizacion_id' => $otraUrbanizacion->id, 'codigo' => 'PAG-M-OTRO', 'nombre' => 'Fuera de contexto']);
 
-        foreach (range(1, 17) as $numero) {
+        foreach (range(1, 57) as $numero) {
             Manzano::create([
                 'urbanizacion_id' => $this->urbanizacion->id,
                 'codigo' => 'PAG-M-'.str_pad((string) $numero, 2, '0', STR_PAD_LEFT),
@@ -210,7 +210,7 @@ class TerrainListingEnhancementsTest extends TestCase
             ->assertSee('Buscar por código o nombre')
             ->assertDontSee('PAG-M-OTRO')
             ->assertDontSee('<th>Urbanizacion</th>', false)
-            ->assertViewHas('manzanos', fn ($manzanos) => $manzanos->perPage() === 15 && $manzanos->total() === 17)
+            ->assertViewHas('manzanos', fn ($manzanos) => $manzanos->perPage() === 50 && $manzanos->total() === 57)
             ->assertSee('buscar=PAG-M-', false);
     }
 

@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Lote;
+use App\Support\UrbanizacionContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,9 +18,22 @@ class StoreLoteRequest extends FormRequest
 
     public function rules(): array
     {
+        $lote = $this->route('lote');
+        $loteId = $lote instanceof Lote ? $lote->id : $lote;
+
         return [
-            'manzano_id' => ['required', 'exists:manzanos,id'],
-            'codigo' => ['required', 'string', 'max:50'],
+            'manzano_id' => [
+                'required',
+                Rule::exists('manzanos', 'id')->where('urbanizacion_id', UrbanizacionContext::currentId()),
+            ],
+            'codigo' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('lotes', 'codigo')
+                    ->where(fn ($query) => $query->where('manzano_id', $this->input('manzano_id')))
+                    ->ignore($loteId),
+            ],
             'superficie' => ['required', 'numeric', 'min:0'],
             'precio' => ['required', 'numeric', 'min:0'],
             'cuota_inicial_tipo' => ['required', 'in:monto,porcentaje'],
@@ -34,6 +49,14 @@ class StoreLoteRequest extends FormRequest
             'coord_x' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'coord_y' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'observaciones' => ['nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'codigo.unique' => 'Ya existe un lote con ese código en este manzano.',
+            'manzano_id.exists' => 'El manzano seleccionado no pertenece a la urbanización actual.',
         ];
     }
 }

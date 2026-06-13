@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Lote;
 use App\Services\AuditService;
 use App\Support\UrbanizacionContext;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,28 +58,22 @@ class LoteCommercialUpdateController extends Controller
         $this->authorizeAdmin($request);
 
         $data = $request->validate([
-            'scope' => ['required', 'in:actual,todos,filtrados,manzano'],
-            'manzano_id' => ['nullable', 'integer', 'exists:manzanos,id'],
+            'lote_ids' => ['required', 'array', 'min:1'],
+            'lote_ids.*' => ['integer', 'distinct', 'exists:lotes,id'],
             'operation' => ['required', 'in:reemplazar_precio_oportunidad,incrementar_precio_oportunidad_monto,incrementar_precio_oportunidad_porcentaje,reemplazar_cuota,incrementar_cuota_monto'],
             'valor' => ['required', 'numeric', 'min:0'],
-            'buscar' => ['nullable', 'string'],
-            'estado' => ['nullable', 'string'],
-            'superficie_desde' => ['nullable', 'numeric', 'min:0'],
-            'superficie_hasta' => ['nullable', 'numeric', 'min:0'],
-            'precio_desde' => ['nullable', 'numeric', 'min:0'],
-            'precio_hasta' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'lote_ids.required' => 'Seleccione al menos un lote.',
+            'lote_ids.min' => 'Seleccione al menos un lote.',
         ]);
 
-        if ($data['scope'] === 'manzano') {
-            $request->validate(['manzano_id' => ['required', 'integer', 'exists:manzanos,id']]);
-            abort_unless(
-                \App\Models\Manzano::whereKey($request->integer('manzano_id'))->where('urbanizacion_id', UrbanizacionContext::currentId())->exists(),
-                403,
-                'No tienes acceso a este manzano.'
-            );
-        }
+        $ids = collect($data['lote_ids'])->map(fn ($id) => (int) $id)->unique()->values();
+        $lotes = UrbanizacionContext::lotes(Lote::query())
+            ->whereIn('id', $ids)
+            ->orderBy('id')
+            ->get();
+        abort_unless($lotes->count() === $ids->count(), 403, 'No tienes acceso a uno o mas lotes seleccionados.');
 
-        $lotes = $this->bulkQuery($request)->orderBy('id')->get();
         $value = (float) ($data['valor'] ?? 0);
 
         DB::transaction(function () use ($lotes, $data, $value, $auditService, $request): void {
@@ -126,34 +119,6 @@ class LoteCommercialUpdateController extends Controller
         });
 
         return back()->with('status', 'Actualizacion masiva aplicada a '.$lotes->count().' lotes.');
-    }
-
-    private function bulkQuery(Request $request): Builder
-    {
-        $query = UrbanizacionContext::lotes(Lote::query());
-        $scope = $request->input('scope');
-
-        if ($scope === 'manzano') {
-            $query->where('manzano_id', $request->integer('manzano_id'));
-        }
-
-        if (in_array($scope, ['actual', 'filtrados'], true)) {
-            $this->applyFilters($query, $request);
-        }
-
-        return $query;
-    }
-
-    private function applyFilters(Builder $query, Request $request): void
-    {
-        $query
-            ->when($request->filled('buscar'), fn ($query) => $query->where('codigo', 'like', '%'.$request->string('buscar')->trim().'%'))
-            ->when($request->filled('manzano_id') && $request->input('scope') !== 'todos', fn ($query) => $query->where('manzano_id', $request->integer('manzano_id')))
-            ->when($request->filled('estado'), fn ($query) => $query->where('estado', $request->string('estado')->toString()))
-            ->when($request->filled('superficie_desde'), fn ($query) => $query->where('superficie', '>=', $request->input('superficie_desde')))
-            ->when($request->filled('superficie_hasta'), fn ($query) => $query->where('superficie', '<=', $request->input('superficie_hasta')))
-            ->when($request->filled('precio_desde'), fn ($query) => $query->where('precio', '>=', $request->input('precio_desde')))
-            ->when($request->filled('precio_hasta'), fn ($query) => $query->where('precio', '<=', $request->input('precio_hasta')));
     }
 
     private function authorizeAdmin(Request $request): void

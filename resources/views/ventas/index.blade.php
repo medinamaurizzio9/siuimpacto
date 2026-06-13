@@ -47,7 +47,7 @@
         <label for="per_page">Mostrar</label>
         <select id="per_page" name="per_page">
             @foreach([15, 30, 50, 100] as $size)
-                <option value="{{ $size }}" @selected((int) ($filters['per_page'] ?? 15) === $size)>{{ $size }} por pagina</option>
+                <option value="{{ $size }}" @selected((int) ($filters['per_page'] ?? 50) === $size)>{{ $size }} por pagina</option>
             @endforeach
         </select>
     </div>
@@ -66,15 +66,15 @@
     <table class="table">
         <thead>
             <tr>
-                <th>Fecha</th>
-                <th>Cliente</th>
-                <th>Lote</th>
-                <th>Tipo operacion</th>
-                <th>Precio</th>
+                <th><x-sort-link field="fecha">Fecha</x-sort-link></th>
+                <th><x-sort-link field="cliente">Cliente</x-sort-link></th>
+                <th><x-sort-link field="lote">Lote</x-sort-link></th>
+                <th><x-sort-link field="tipo">Tipo operacion</x-sort-link></th>
+                <th><x-sort-link field="monto">Precio</x-sort-link></th>
                 <th>Cuota inicial</th>
                 <th>Saldo</th>
                 <th>Cuotas</th>
-                <th>Estado</th>
+                <th><x-sort-link field="estado">Estado</x-sort-link></th>
                 <th></th>
             </tr>
         </thead>

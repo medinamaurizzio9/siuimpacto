@@ -10,11 +10,18 @@
     <div class="field"><label>Superficie total</label><input name="superficie_total" type="number" step="0.01" value="{{ old('superficie_total', $urbanizacion->superficie_total ?? 0) }}"></div>
     <div class="field"><label>Estado</label><select name="estado">@foreach(['activa','pausada','cerrada'] as $estado)<option @selected(old('estado', $urbanizacion->estado ?? 'activa') === $estado)>{{ $estado }}</option>@endforeach</select></div>
     <label class="check-row"><input type="checkbox" name="mostrar_precio_publico" value="1" @checked(old('mostrar_precio_publico', $urbanizacion->mostrar_precio_publico ?? true))> Mostrar precio en disponibilidad publica</label>
-    <div class="field full"><label>Plano de la urbanizacion</label><input type="file" name="plano_imagen" accept="image/jpeg,image/png,image/webp"></div>
+    <div class="field full">
+        <label>Plano de la urbanizacion</label>
+        <input type="file" name="plano_imagen" accept="application/pdf,image/jpeg,image/png,image/webp">
+        <p class="muted">Para mejor calidad, suba el plano en PDF o imagen mínima de 3000 px de ancho.</p>
+    </div>
     @if($urbanizacion->plano_imagen)
         <div class="field full">
             <label>Preview del plano cargado</label>
             <img class="plan-preview" src="{{ asset('storage/'.$urbanizacion->plano_imagen) }}" alt="Plano de {{ $urbanizacion->nombre }}">
+            @if($urbanizacion->plano_archivo_original)
+                <p class="muted">PDF original guardado. El mapa usa la imagen convertida de alta resolución.</p>
+            @endif
         </div>
     @endif
     <div class="field full"><label>Descripcion</label><textarea name="descripcion">{{ old('descripcion', $urbanizacion->descripcion) }}</textarea></div>
