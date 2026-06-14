@@ -62,6 +62,7 @@ class AuthSecurityTest extends TestCase
         ])->assertRedirect(route('password.change'));
 
         $this->post(route('password.change.update'), [
+            'current_password' => 'temporal123',
             'password' => 'nueva-clave-segura',
             'password_confirmation' => 'nueva-clave-segura',
         ])->assertRedirect(route('urbanizaciones.select'));

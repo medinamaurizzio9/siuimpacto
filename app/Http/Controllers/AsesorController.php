@@ -4,16 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\Asesor;
 use App\Models\GrupoComercial;
+use App\Models\SupervisorProfile;
 use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\UserSpreadsheetService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 use Illuminate\View\View;
 
 class AsesorController extends Controller
@@ -152,6 +156,141 @@ class AsesorController extends Controller
         return Pdf::loadView('asesores.export', ['asesores' => $this->scopedQuery($request)->get()])->download('asesores-impacto.pdf');
     }
 
+    public function importForm(Request $request): View
+    {
+        $this->authorizeAdmin($request);
+
+        return view('asesores.import');
+    }
+
+    public function import(Request $request, UserSpreadsheetService $spreadsheet, AuditService $auditService): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+
+        $data = $request->validate([
+            'archivo' => ['required', 'file', 'mimes:csv,txt,xlsx'],
+        ]);
+
+        try {
+            $rows = $spreadsheet->rowsFromUpload($data['archivo']);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors(['archivo' => $exception->getMessage()]);
+        }
+
+        $created = 0;
+        $skipped = 0;
+        $errors = [];
+
+        DB::transaction(function () use ($rows, &$created, &$skipped, &$errors): void {
+            foreach ($rows as $index => $row) {
+                $line = $index + 2;
+                $nombre = trim((string) ($row['nombre'] ?? ''));
+                $email = trim((string) ($row['email'] ?? ''));
+                $password = (string) ($row['password'] ?? '');
+                $rol = trim((string) ($row['rol'] ?? ''));
+                $estado = trim((string) ($row['estado'] ?? '')) ?: 'activo';
+                $telefono = trim((string) ($row['telefono'] ?? ''));
+                $ci = trim((string) ($row['ci'] ?? ''));
+                $urbanizacionNombre = trim((string) ($row['urbanizacion'] ?? ''));
+                $supervisorNombre = trim((string) ($row['supervisor'] ?? ''));
+                $urbanizacion = null;
+                $supervisor = null;
+                $rowErrors = [];
+
+                Log::info('Import row', $row);
+
+                if ($nombre === '') {
+                    $rowErrors[] = "Fila {$line}: Nombre requerido.";
+                }
+                if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $rowErrors[] = "Fila {$line}: Email invalido.";
+                } elseif (User::where('email', $email)->exists()) {
+                    $rowErrors[] = "Fila {$line}: El email ya existe.";
+                }
+                if (trim($password) === '') {
+                    $rowErrors[] = "Fila {$line}: Contrasena requerida.";
+                } elseif (mb_strlen($password) < 6) {
+                    $rowErrors[] = "Fila {$line}: La contrasena debe tener al menos 6 caracteres.";
+                }
+                if (! in_array($rol, ['vendedor', 'supervisor'], true)) {
+                    $rowErrors[] = "Fila {$line}: Rol no válido.";
+                }
+                if (! in_array($estado, ['activo', 'inactivo'], true)) {
+                    $rowErrors[] = "Fila {$line}: Estado no valido.";
+                }
+                if ($urbanizacionNombre !== '') {
+                    $urbanizacion = Urbanizacion::whereRaw('LOWER(nombre) = ?', [mb_strtolower($urbanizacionNombre)])->first();
+                    if (! $urbanizacion) {
+                        $rowErrors[] = "Fila {$line}: Urbanización no encontrada.";
+                    }
+                }
+                if ($supervisorNombre !== '') {
+                    $supervisor = User::role('supervisor')
+                        ->where(fn ($query) => $query->where('name', $supervisorNombre)->orWhere('email', $supervisorNombre))
+                        ->first();
+                    if (! $supervisor) {
+                        $rowErrors[] = "Fila {$line}: Supervisor no encontrado.";
+                    }
+                }
+
+                if ($rowErrors !== []) {
+                    $errors = array_merge($errors, $rowErrors);
+                    $skipped++;
+                    continue;
+                }
+
+                $user = User::create([
+                    'name' => $nombre,
+                    'email' => $email,
+                    'password' => Hash::make($password),
+                    'must_change_password' => true,
+                    'estado' => $estado,
+                ]);
+                $user->syncRoles([$rol]);
+
+                if ($urbanizacion) {
+                    $user->urbanizacionesAsignadas()->syncWithoutDetaching([$urbanizacion->id => ['activo' => $estado === 'activo']]);
+                }
+
+                $this->syncImportedProfile($user, $rol, [
+                    'nombre' => $nombre,
+                    'email' => $email,
+                    'telefono' => $telefono,
+                    'ci' => $ci,
+                    'activo' => $estado === 'activo',
+                    'supervisor_id' => $supervisor?->id,
+                ]);
+                $created++;
+            }
+        });
+
+        $auditService->log(null, 'importar_usuarios', 'Importacion de equipo comercial.', null, [
+            'creados' => $created,
+            'omitidos' => $skipped,
+            'errores' => count($errors),
+        ], $request);
+
+        return redirect()
+            ->route('asesores.import')
+            ->with('status', "Usuarios creados: {$created}. Usuarios omitidos: {$skipped}. Errores: ".count($errors).'.')
+            ->with('import_errors', $errors);
+    }
+
+    public function template(Request $request, UserSpreadsheetService $spreadsheet): Response
+    {
+        $this->authorizeAdmin($request);
+
+        $content = $spreadsheet->xlsx(UserSpreadsheetService::HEADERS, [
+            ['Maria Lopez', 'maria@empresa.com', '12345678', 'supervisor', 'activo', '77722222', '2345678', 'Colinas del Norte Zona 1', ''],
+            ['Juan Perez', 'juan@empresa.com', '12345678', 'vendedor', 'activo', '77711111', '1234567', 'Colinas del Norte Zona 1', 'Maria Lopez'],
+        ]);
+
+        return response($content, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="plantilla_equipo_comercial.xlsx"',
+        ]);
+    }
+
     private function formData(Request $request, Asesor $asesor): array
     {
         $urbanizaciones = $request->user()->hasRole('supervisor')
@@ -220,6 +359,50 @@ class AsesorController extends Controller
         if ($request->user()->hasRole('supervisor')) {
             abort_unless((int) $asesor->supervisor_id === $request->user()->id, 403, 'Solo puedes gestionar asesores de tu equipo.');
         }
+    }
+
+    private function authorizeAdmin(Request $request): void
+    {
+        abort_unless($request->user()?->hasRole('administrador'), 403);
+    }
+
+    private function syncImportedProfile(User $user, string $rol, array $data): void
+    {
+        if ($rol === 'supervisor') {
+            SupervisorProfile::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'nombre' => $data['nombre'],
+                    'ci' => $data['ci'] !== '' ? $data['ci'] : null,
+                    'celular' => $data['telefono'] ?: null,
+                    'email' => $data['email'],
+                    'activo' => $data['activo'],
+                ]
+            );
+        }
+
+        if ($rol === 'vendedor') {
+            [$nombre, $apellido] = $this->splitName($data['nombre']);
+            Asesor::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'supervisor_id' => $data['supervisor_id'],
+                    'nombre' => $nombre,
+                    'apellido' => $apellido,
+                    'ci' => $data['ci'] !== '' ? $data['ci'] : null,
+                    'celular' => $data['telefono'] ?: null,
+                    'email' => $data['email'],
+                    'activo' => $data['activo'],
+                ]
+            );
+        }
+    }
+
+    private function splitName(string $name): array
+    {
+        $parts = preg_split('/\s+/', trim($name), 2);
+
+        return [$parts[0] ?: $name, $parts[1] ?? ''];
     }
 
     private function syncPayload(array $urbanizaciones): array

@@ -2,7 +2,14 @@
 @section('content')
 <div class="topbar">
     <h1 class="title">Equipo comercial</h1>
-    <div class="actions">@can('exportar reportes')<a class="btn secondary" href="{{ route('asesores.excel') }}">Exportar Excel</a><a class="btn secondary" href="{{ route('asesores.pdf') }}">Exportar PDF</a>@endcan @can('crear asesores')<a class="btn" href="{{ route('asesores.create') }}">Crear asesor</a>@endcan</div>
+    <div class="actions">
+        @if(auth()->user()?->hasRole('administrador'))
+            <a class="btn secondary" href="{{ route('asesores.import') }}">Importar Excel</a>
+            <a class="btn secondary" href="{{ route('asesores.template') }}">Descargar plantilla</a>
+        @endif
+        @can('exportar reportes')<a class="btn secondary" href="{{ route('asesores.excel') }}">Exportar Excel</a><a class="btn secondary" href="{{ route('asesores.pdf') }}">Exportar PDF</a>@endcan
+        @can('crear asesores')<a class="btn" href="{{ route('asesores.create') }}">Crear asesor</a>@endcan
+    </div>
 </div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
 

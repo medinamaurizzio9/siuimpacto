@@ -56,6 +56,9 @@ Route::middleware('auth')->group(function (): void {
         Route::put('/urbanizaciones/asignaciones/{user}', [UrbanizacionAssignmentController::class, 'update'])->name('urbanizaciones.asignaciones.update');
         Route::get('/asesores/excel', [AsesorController::class, 'excel'])->middleware('can:exportar reportes')->name('asesores.excel');
         Route::get('/asesores/pdf', [AsesorController::class, 'pdf'])->middleware('can:exportar reportes')->name('asesores.pdf');
+        Route::get('/asesores/importar', [AsesorController::class, 'importForm'])->name('asesores.import');
+        Route::post('/asesores/importar', [AsesorController::class, 'import'])->name('asesores.import.store');
+        Route::get('/asesores/plantilla', [AsesorController::class, 'template'])->name('asesores.template');
         Route::resource('asesores', AsesorController::class)->parameters(['asesores' => 'asesor'])->except('show')->middlewareFor(['index'], 'can:editar asesores')->middlewareFor(['create', 'store'], 'can:crear asesores')->middlewareFor(['edit', 'update'], 'can:editar asesores')->middlewareFor(['destroy'], 'can:desactivar asesores');
         Route::post('/asesores/{asesor}/reset-password', [AsesorController::class, 'resetPassword'])->middleware('can:resetear contraseña asesor')->name('asesores.reset-password');
         Route::get('/supervisores/excel', [SupervisorController::class, 'excel'])->middleware('can:exportar reportes')->name('supervisores.excel');
@@ -113,6 +116,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/usuarios', [UsuarioController::class, 'index'])->name('usuarios');
     Route::get('/usuarios/create', [UsuarioController::class, 'create'])->name('usuarios.create');
     Route::post('/usuarios', [UsuarioController::class, 'store'])->name('usuarios.store');
+    Route::get('/usuarios/importar', [UsuarioController::class, 'importForm'])->name('usuarios.import');
+    Route::post('/usuarios/importar', [UsuarioController::class, 'import'])->name('usuarios.import.store');
+    Route::get('/usuarios/exportar', [UsuarioController::class, 'export'])->name('usuarios.export');
+    Route::get('/usuarios/plantilla', [UsuarioController::class, 'template'])->name('usuarios.template');
     Route::get('/usuarios/{usuario}/edit', [UsuarioController::class, 'edit'])->name('usuarios.edit');
     Route::put('/usuarios/{usuario}', [UsuarioController::class, 'update'])->name('usuarios.update');
 

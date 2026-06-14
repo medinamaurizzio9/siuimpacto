@@ -86,7 +86,12 @@ class ReservaController extends Controller
         ]);
 
         if ($request->filled('lote_id')) {
-            $reserva->lote_id = $request->integer('lote_id');
+            $lote = Lote::with('manzano')->findOrFail($request->integer('lote_id'));
+            abort_unless(UrbanizacionContext::loteBelongsToCurrent($lote), 403, 'No tienes acceso a esta urbanizacion');
+            $reserva->lote_id = $lote->id;
+            if ($request->user()->hasRole('vendedor')) {
+                $reserva->fecha_vencimiento = $settings->addBusinessDays($fechaReserva, $settings->reservaDiasHabilesAsesor((int) $lote->manzano->urbanizacion_id));
+            }
         }
 
         if ($request->filled('cliente_id')) {

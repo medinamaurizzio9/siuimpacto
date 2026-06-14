@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('supervisor_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('nombre');
             $table->string('apellido');
-            $table->string('ci')->unique();
+            $table->string('ci')->nullable()->unique();
             $table->string('celular')->nullable();
             $table->string('email')->unique();
             $table->string('grupo_comercial')->nullable();

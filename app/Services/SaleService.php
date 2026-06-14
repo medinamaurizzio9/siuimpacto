@@ -166,9 +166,11 @@ class SaleService
 
         $data['tipo_operacion'] = $tipoOperacion;
         $data['precio_base_usd'] = $payload['base_usd'];
+        $data['incremento_credito_tipo'] = $payload['incremento_credito_tipo'];
+        $data['incremento_credito_valor'] = $payload['incremento_credito_valor'];
         $data['incremento_credito_aplicado'] = $tipoOperacion === 'credito' ? $payload['credit_increment_usd'] : 0;
         $data['precio_final_usd'] = $forceAmounts ? $operationUsd : (float) ($data['precio_final'] ?? $operationUsd);
-        $data['precio_final_bs'] = $this->pricingService->bs((float) $data['precio_final_usd']);
+        $data['precio_final_bs'] = $this->pricingService->bs((float) $data['precio_final_usd'], $lote);
         $data['tipo_cambio_usd_bs'] = $payload['tipo_cambio_usd_bs'];
 
         return $data;

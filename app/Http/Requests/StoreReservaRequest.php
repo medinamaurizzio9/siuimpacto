@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
+use App\Models\Lote;
 use App\Models\Reserva;
 use App\Services\CommercialSettingsService;
 
@@ -21,11 +22,19 @@ class StoreReservaRequest extends FormRequest
         if ($this->user()?->hasRole('vendedor')) {
             $fechaReserva = $this->input('fecha_reserva') ?: now()->toDateString();
             $settings = app(CommercialSettingsService::class);
+            $urbanizacionId = null;
+
+            if ($this->filled('lote_id')) {
+                $urbanizacionId = Lote::with('manzano')
+                    ->find($this->input('lote_id'))
+                    ?->manzano
+                    ?->urbanizacion_id;
+            }
 
             $this->merge([
                 'fecha_reserva' => $fechaReserva,
                 'fecha_vencimiento' => $settings
-                    ->addBusinessDays(Carbon::parse($fechaReserva), $settings->reservaDiasHabilesAsesor())
+                    ->addBusinessDays(Carbon::parse($fechaReserva), $settings->reservaDiasHabilesAsesor($urbanizacionId ? (int) $urbanizacionId : null))
                     ->toDateString(),
             ]);
         }

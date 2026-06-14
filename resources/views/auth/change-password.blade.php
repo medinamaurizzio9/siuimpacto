@@ -11,6 +11,7 @@
 
 <form class="form card" method="POST" action="{{ route('password.change.update') }}">
     @csrf
+    <div class="field"><label>Contrasena actual</label><input type="password" name="current_password" required></div>
     <div class="field"><label>Nueva contrasena</label><input type="password" name="password" required></div>
     <div class="field"><label>Confirmar contrasena</label><input type="password" name="password_confirmation" required></div>
     <div class="field full"><button class="btn">Actualizar contrasena</button></div>

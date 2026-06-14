@@ -1,6 +1,11 @@
 @extends('layouts.app')
 @section('content')
-<div class="topbar"><h1 class="title">Configuracion comercial</h1></div>
+<div class="topbar">
+    <div>
+        <h1 class="title">Configuracion comercial</h1>
+        <p class="context-title">Urbanizacion actual: {{ $urbanizacion?->nombre ?? 'Sin seleccionar' }}</p>
+    </div>
+</div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
 @if ($errors->any()) <div class="errors">{{ $errors->first() }}</div> @endif
 <form class="form card" method="POST" action="{{ route('admin.configuracion.update') }}">
