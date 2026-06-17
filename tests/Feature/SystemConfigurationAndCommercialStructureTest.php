@@ -41,6 +41,84 @@ class SystemConfigurationAndCommercialStructureTest extends TestCase
         $this->assertTrue($profile->user->must_change_password);
     }
 
+    public function test_admin_ve_boton_eliminar_supervisor(): void
+    {
+        [$admin, $urbanizacion] = $this->adminContext();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('supervisores.index'))
+            ->assertOk()
+            ->assertSee('Eliminar');
+    }
+
+    public function test_administrador_puede_eliminar_supervisor_sin_historial(): void
+    {
+        [$admin, $urbanizacion] = $this->adminContext();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('supervisores.store'), [
+                'nombre' => 'Supervisor Eliminar',
+                'ci' => 'SUP-DEL',
+                'celular' => '70009001',
+                'email' => 'supervisor.eliminar@test.local',
+                'direccion' => 'Zona Norte',
+                'activo' => 1,
+            ])
+            ->assertRedirect(route('supervisores.index'));
+
+        $profile = SupervisorProfile::where('ci', 'SUP-DEL')->firstOrFail();
+        $userId = $profile->user_id;
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->delete(route('supervisores.destroy', $profile))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Usuario eliminado correctamente.');
+
+        $this->assertDatabaseMissing('users', ['id' => $userId]);
+        $this->assertDatabaseMissing('supervisor_profiles', ['id' => $profile->id]);
+        $this->assertDatabaseHas('audit_logs', [
+            'modelo' => 'User',
+            'modelo_id' => $userId,
+            'accion' => 'eliminar_supervisor',
+        ]);
+    }
+
+    public function test_administrador_desactiva_supervisor_con_equipo_asociado(): void
+    {
+        [$admin, $urbanizacion] = $this->adminContext();
+        $profile = SupervisorProfile::whereHas('user', fn ($query) => $query->where('email', 'supervisor@impacto.test'))->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->delete(route('supervisores.destroy', $profile))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'El usuario tiene registros asociados, por seguridad fue desactivado.');
+
+        $this->assertDatabaseHas('users', ['id' => $profile->user_id, 'estado' => 'inactivo']);
+        $this->assertDatabaseHas('supervisor_profiles', ['id' => $profile->id, 'activo' => false]);
+        $this->assertDatabaseHas('audit_logs', [
+            'modelo' => 'User',
+            'modelo_id' => $profile->user_id,
+            'accion' => 'desactivar_supervisor',
+        ]);
+    }
+
+    public function test_usuario_no_admin_recibe_403_al_eliminar_supervisor(): void
+    {
+        $this->seed();
+        $vendedor = User::where('email', 'vendedor@impacto.test')->firstOrFail();
+        $supervisor = SupervisorProfile::firstOrFail();
+        $urbanizacionId = $vendedor->urbanizacionesAsignadas()->firstOrFail()->id;
+
+        $this->actingAs($vendedor)
+            ->withSession(['urbanizacion_id' => $urbanizacionId])
+            ->delete(route('supervisores.destroy', $supervisor))
+            ->assertForbidden();
+    }
+
     public function test_admin_puede_crear_grupo_comercial(): void
     {
         [$admin, $urbanizacion] = $this->adminContext();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SupervisorProfile;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\UserDeletionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Http\RedirectResponse;
@@ -16,10 +17,15 @@ use Illuminate\View\View;
 
 class SupervisorController extends Controller
 {
-    public function index(): View
+    public function index(UserDeletionService $deletionService): View
     {
+        $supervisores = SupervisorProfile::with('user')->latest()->paginate(15);
+        $supervisores->getCollection()->each(
+            fn (SupervisorProfile $supervisor) => $supervisor->setAttribute('has_delete_history', $deletionService->hasHistoricalRecords($supervisor->user))
+        );
+
         return view('supervisores.index', [
-            'supervisores' => SupervisorProfile::with('user')->latest()->paginate(15),
+            'supervisores' => $supervisores,
         ]);
     }
 
@@ -73,13 +79,13 @@ class SupervisorController extends Controller
         return redirect()->route('supervisores.index')->with('status', 'Supervisor actualizado.');
     }
 
-    public function destroy(Request $request, SupervisorProfile $supervisor, AuditService $auditService): RedirectResponse
+    public function destroy(Request $request, SupervisorProfile $supervisor, AuditService $auditService, UserDeletionService $deletionService): RedirectResponse
     {
-        $before = $supervisor->toArray();
-        $supervisor->update(['activo' => false]);
-        $auditService->log($supervisor, 'desactivar_supervisor', 'Supervisor comercial desactivado.', $before, $supervisor->fresh()->toArray(), $request);
+        $result = $deletionService->deleteOrDeactivate($supervisor->user, $request, $auditService, 'eliminar_supervisor', 'desactivar_supervisor');
 
-        return back()->with('status', 'Supervisor desactivado.');
+        return back()->with('status', $result === 'deleted'
+            ? 'Usuario eliminado correctamente.'
+            : 'El usuario tiene registros asociados, por seguridad fue desactivado.');
     }
 
     public function excel(): Response

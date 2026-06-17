@@ -16,7 +16,7 @@
             <td>{{ $supervisor->email }}</td>
             <td>{{ $supervisor->direccion }}</td>
             <td><span class="badge {{ $supervisor->activo ? 'activa' : 'cancelada' }}">{{ $supervisor->activo ? 'activo' : 'inactivo' }}</span></td>
-            <td class="actions"><a class="btn secondary" href="{{ route('supervisores.edit', $supervisor) }}">Editar</a>@if($supervisor->activo)<form method="POST" action="{{ route('supervisores.destroy', $supervisor) }}" onsubmit="return confirm('Confirma desactivar este supervisor?');">@csrf @method('DELETE')<button class="btn danger">Desactivar</button></form>@endif</td>
+            <td class="actions"><a class="btn secondary" href="{{ route('supervisores.edit', $supervisor) }}">Editar</a>@if(auth()->user()?->hasRole('administrador'))@php $deleteConfirm = $supervisor->has_delete_history ? 'Este usuario tiene ventas, reservas o registros asociados. Si lo elimina, podría afectar reportes históricos. Se recomienda desactivarlo en lugar de eliminarlo. ¿Desea continuar?' : '¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.'; @endphp<form method="POST" action="{{ route('supervisores.destroy', $supervisor) }}" onsubmit="return confirm(@js($deleteConfirm));">@csrf @method('DELETE')<button type="submit" class="btn danger">Eliminar</button></form>@endif</td>
         </tr>
     @endforeach
     </tbody>

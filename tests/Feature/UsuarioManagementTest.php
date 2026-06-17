@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Cliente;
+use App\Models\Lote;
 use App\Models\Urbanizacion;
 use App\Models\User;
+use App\Models\Venta;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -35,7 +38,8 @@ class UsuarioManagementTest extends TestCase
             ->assertSee(route('admin.usuarios.create'), false)
             ->assertSee(route('admin.usuarios.edit', $usuario), false)
             ->assertSee('Nuevo usuario')
-            ->assertSee('Editar');
+            ->assertSee('Editar')
+            ->assertSee('Eliminar');
 
         $this->actingAs($this->admin)
             ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
@@ -127,5 +131,79 @@ class UsuarioManagementTest extends TestCase
                 ])
                 ->assertForbidden();
         }
+    }
+
+    public function test_administrador_puede_eliminar_usuario_sin_historial(): void
+    {
+        $usuario = User::factory()->create([
+            'name' => 'Usuario Sin Historial',
+            'email' => 'sin.historial@test.local',
+            'estado' => 'activo',
+        ]);
+        $usuario->assignRole('vendedor');
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->delete(route('admin.usuarios.destroy', $usuario))
+            ->assertRedirect(route('admin.usuarios'))
+            ->assertSessionHas('status', 'Usuario eliminado correctamente.');
+
+        $this->assertDatabaseMissing('users', ['id' => $usuario->id]);
+        $this->assertDatabaseHas('audit_logs', [
+            'modelo' => 'User',
+            'modelo_id' => $usuario->id,
+            'accion' => 'eliminar_usuario',
+        ]);
+    }
+
+    public function test_administrador_desactiva_usuario_con_venta_asociada(): void
+    {
+        $usuario = User::factory()->create([
+            'name' => 'Usuario Con Venta',
+            'email' => 'con.venta@test.local',
+            'estado' => 'activo',
+        ]);
+        $usuario->assignRole('vendedor');
+        Venta::create([
+            'lote_id' => Lote::firstOrFail()->id,
+            'cliente_id' => Cliente::firstOrFail()->id,
+            'user_id' => $usuario->id,
+            'fecha_venta' => now()->toDateString(),
+            'precio_final' => 10000,
+            'cuota_inicial' => 1000,
+            'numero_cuotas' => 0,
+            'estado' => 'activa',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->delete(route('admin.usuarios.destroy', $usuario))
+            ->assertRedirect(route('admin.usuarios'))
+            ->assertSessionHas('status', 'El usuario tiene registros asociados, por seguridad fue desactivado.');
+
+        $this->assertDatabaseHas('users', ['id' => $usuario->id, 'estado' => 'inactivo']);
+        $this->assertDatabaseHas('audit_logs', [
+            'modelo' => 'User',
+            'modelo_id' => $usuario->id,
+            'accion' => 'desactivar_usuario',
+        ]);
+    }
+
+    public function test_vendedor_no_ve_boton_eliminar_y_recibe_403_al_intentar_eliminar(): void
+    {
+        $vendedor = User::where('email', 'vendedor@impacto.test')->firstOrFail();
+        $usuario = User::where('email', 'gerente@impacto.test')->firstOrFail();
+        $urbanizacionId = $vendedor->urbanizacionesAsignadas()->first()?->id ?? $this->urbanizacion->id;
+
+        $this->actingAs($vendedor)
+            ->withSession(['urbanizacion_id' => $urbanizacionId])
+            ->get(route('admin.usuarios'))
+            ->assertForbidden()
+            ->assertDontSee('Eliminar');
+
+        $this->actingAs($vendedor)
+            ->withSession(['urbanizacion_id' => $urbanizacionId])
+            ->delete(route('admin.usuarios.destroy', $usuario))
+            ->assertForbidden();
     }
 }

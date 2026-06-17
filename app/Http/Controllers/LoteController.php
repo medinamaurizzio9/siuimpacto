@@ -6,6 +6,7 @@ use App\Http\Requests\StoreLoteRequest;
 use App\Models\Lote;
 use App\Models\Manzano;
 use App\Services\AuditService;
+use App\Services\CommercialSettingsService;
 use App\Services\LotService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\RedirectResponse;
@@ -110,14 +111,26 @@ class LoteController extends Controller
 
     private function applyFilters($query, Request $request): void
     {
+        $canSeePrecioOportunidad = $request->user()?->hasAnyRole(['administrador', 'super administrador']) ?? false;
+        $settings = app(CommercialSettingsService::class);
+        $incrementType = $settings->incrementoCreditoTipo();
+        $incrementValue = $settings->incrementoCreditoValor();
+        $realPriceColumn = $incrementType === 'porcentaje'
+            ? 'precio * '.(1 + $incrementValue / 100)
+            : 'precio + '.$incrementValue;
+
         $query
             ->when($request->filled('buscar'), fn ($query) => $query->where('codigo', 'like', '%'.$request->string('buscar')->trim().'%'))
             ->when($request->filled('manzano_id'), fn ($query) => $query->where('manzano_id', $request->integer('manzano_id')))
             ->when($request->filled('estado'), fn ($query) => $query->where('estado', $request->string('estado')->toString()))
             ->when($request->filled('superficie_desde'), fn ($query) => $query->where('superficie', '>=', $request->input('superficie_desde')))
             ->when($request->filled('superficie_hasta'), fn ($query) => $query->where('superficie', '<=', $request->input('superficie_hasta')))
-            ->when($request->filled('precio_desde'), fn ($query) => $query->where('precio', '>=', $request->input('precio_desde')))
-            ->when($request->filled('precio_hasta'), fn ($query) => $query->where('precio', '<=', $request->input('precio_hasta')));
+            ->when($request->filled('precio_desde'), fn ($query) => $canSeePrecioOportunidad
+                ? $query->where('precio', '>=', $request->input('precio_desde'))
+                : $query->whereRaw("({$realPriceColumn}) >= ?", [$request->input('precio_desde')]))
+            ->when($request->filled('precio_hasta'), fn ($query) => $canSeePrecioOportunidad
+                ? $query->where('precio', '<=', $request->input('precio_hasta'))
+                : $query->whereRaw("({$realPriceColumn}) <= ?", [$request->input('precio_hasta')]));
     }
 
     private function sort(Request $request): array

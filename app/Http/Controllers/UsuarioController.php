@@ -7,6 +7,7 @@ use App\Models\SupervisorProfile;
 use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\UserDeletionService;
 use App\Services\UserSpreadsheetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class UsuarioController extends Controller
         'cliente',
     ];
 
-    public function index(Request $request): View
+    public function index(Request $request, UserDeletionService $deletionService): View
     {
         $this->authorizeManageUsers($request);
         $sort = $this->sort($request);
@@ -37,6 +38,10 @@ class UsuarioController extends Controller
             ->tap(fn ($query) => $this->applySorting($query, $sort['field'], $sort['direction']))
             ->paginate(50)
             ->appends($request->query());
+
+        $users->getCollection()->each(
+            fn (User $user) => $user->setAttribute('has_delete_history', $deletionService->hasHistoricalRecords($user))
+        );
 
         return view('administracion.usuarios.index', compact('users'));
     }
@@ -307,6 +312,17 @@ class UsuarioController extends Controller
         return redirect()
             ->route('admin.usuarios')
             ->with('status', 'Usuario actualizado correctamente.');
+    }
+
+    public function destroy(Request $request, User $usuario, AuditService $auditService, UserDeletionService $deletionService): RedirectResponse
+    {
+        $result = $deletionService->deleteOrDeactivate($usuario, $request, $auditService, 'eliminar_usuario', 'desactivar_usuario');
+
+        return redirect()
+            ->route('admin.usuarios')
+            ->with('status', $result === 'deleted'
+                ? 'Usuario eliminado correctamente.'
+                : 'El usuario tiene registros asociados, por seguridad fue desactivado.');
     }
 
     private function roles()

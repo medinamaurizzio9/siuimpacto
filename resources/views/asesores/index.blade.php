@@ -28,7 +28,14 @@
             <td class="actions">
                 @can('editar asesores')<a class="btn secondary" href="{{ route('asesores.edit', $asesor) }}">Editar</a>@endcan
                 @can('resetear contraseña asesor')<form method="POST" action="{{ route('asesores.reset-password', $asesor) }}" onsubmit="return confirm('Confirma resetear la contrasena del asesor a su CI?');">@csrf<button class="btn secondary">Resetear clave</button></form>@endcan
-                @can('desactivar asesores')@if($asesor->activo)<form method="POST" action="{{ route('asesores.destroy', $asesor) }}" onsubmit="return confirm('Confirma desactivar este asesor?');">@csrf @method('DELETE')<button class="btn danger">Desactivar</button></form>@endif @endcan
+                @if(auth()->user()?->hasRole('administrador'))
+                    @php
+                        $deleteConfirm = $asesor->has_delete_history
+                            ? 'Este usuario tiene ventas, reservas o registros asociados. Si lo elimina, podría afectar reportes históricos. Se recomienda desactivarlo en lugar de eliminarlo. ¿Desea continuar?'
+                            : '¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.';
+                    @endphp
+                    <form method="POST" action="{{ route('asesores.destroy', $asesor) }}" onsubmit="return confirm(@js($deleteConfirm));">@csrf @method('DELETE')<button type="submit" class="btn danger">Eliminar</button></form>
+                @endif
             </td>
         </tr>
     @endforeach

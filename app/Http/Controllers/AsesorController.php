@@ -8,6 +8,7 @@ use App\Models\SupervisorProfile;
 use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\UserDeletionService;
 use App\Services\UserSpreadsheetService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,7 @@ use Illuminate\View\View;
 
 class AsesorController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, UserDeletionService $deletionService): View
     {
         $query = Asesor::with('user', 'supervisor', 'grupo', 'user.urbanizacionesAsignadas')->latest();
 
@@ -30,8 +31,13 @@ class AsesorController extends Controller
             $query->where('supervisor_id', $request->user()->id);
         }
 
+        $asesores = $query->paginate(15);
+        $asesores->getCollection()->each(
+            fn (Asesor $asesor) => $asesor->setAttribute('has_delete_history', $deletionService->hasHistoricalRecords($asesor->user))
+        );
+
         return view('asesores.index', [
-            'asesores' => $query->paginate(15),
+            'asesores' => $asesores,
         ]);
     }
 
@@ -118,15 +124,13 @@ class AsesorController extends Controller
         return redirect()->route('asesores.index')->with('status', 'Asesor actualizado.');
     }
 
-    public function destroy(Request $request, Asesor $asesor, AuditService $auditService): RedirectResponse
+    public function destroy(Request $request, Asesor $asesor, AuditService $auditService, UserDeletionService $deletionService): RedirectResponse
     {
-        $this->authorizeManage($request, $asesor, 'desactivar asesores');
+        $result = $deletionService->deleteOrDeactivate($asesor->user, $request, $auditService, 'eliminar_asesor', 'desactivar_asesor');
 
-        $before = $asesor->toArray();
-        $asesor->update(['activo' => false]);
-        $auditService->log($asesor, 'desactivar_asesor', 'Asesor desactivado.', $before, $asesor->fresh()->toArray(), $request);
-
-        return back()->with('status', 'Asesor desactivado.');
+        return back()->with('status', $result === 'deleted'
+            ? 'Usuario eliminado correctamente.'
+            : 'El usuario tiene registros asociados, por seguridad fue desactivado.');
     }
 
     public function resetPassword(Request $request, Asesor $asesor, AuditService $auditService): RedirectResponse

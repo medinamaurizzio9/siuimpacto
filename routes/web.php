@@ -122,6 +122,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/usuarios/plantilla', [UsuarioController::class, 'template'])->name('usuarios.template');
     Route::get('/usuarios/{usuario}/edit', [UsuarioController::class, 'edit'])->name('usuarios.edit');
     Route::put('/usuarios/{usuario}', [UsuarioController::class, 'update'])->name('usuarios.update');
+    Route::delete('/usuarios/{usuario}', [UsuarioController::class, 'destroy'])->name('usuarios.destroy');
 
     Route::get('/roles-permisos', function () {
         $roles = \Spatie\Permission\Models\Role::with('permissions')

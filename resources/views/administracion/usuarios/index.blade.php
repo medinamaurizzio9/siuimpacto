@@ -39,6 +39,18 @@
                     <td>{{ $user->must_change_password ? 'Si' : 'No' }}</td>
                     <td class="actions">
                         <a href="{{ route('admin.usuarios.edit', $user) }}" class="btn secondary">Editar</a>
+                        @if(auth()->user()?->hasRole('administrador'))
+                            @php
+                                $deleteConfirm = $user->has_delete_history
+                                    ? 'Este usuario tiene ventas, reservas o registros asociados. Si lo elimina, podría afectar reportes históricos. Se recomienda desactivarlo en lugar de eliminarlo. ¿Desea continuar?'
+                                    : '¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.';
+                            @endphp
+                            <form method="POST" action="{{ route('admin.usuarios.destroy', $user) }}" onsubmit="return confirm(@js($deleteConfirm));">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn danger">Eliminar</button>
+                            </form>
+                        @endif
                     </td>
                 </tr>
             @empty

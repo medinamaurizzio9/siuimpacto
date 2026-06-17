@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Asesor;
+use App\Models\Cliente;
+use App\Models\Lote;
 use App\Models\SupervisorProfile;
 use App\Models\Urbanizacion;
 use App\Models\User;
+use App\Models\Venta;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -131,13 +134,95 @@ class AsesorManagementTest extends TestCase
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
             ->get(route('asesores.index'))
             ->assertOk()
-            ->assertSee('Importar Excel');
+            ->assertSee('Importar Excel')
+            ->assertSee('Eliminar');
 
         $this->actingAs($vendedor)
             ->withSession(['urbanizacion_id' => $vendedor->urbanizacionesAsignadas()->firstOrFail()->id])
             ->get(route('asesores.index'))
             ->assertForbidden()
-            ->assertDontSee('Importar Excel');
+            ->assertDontSee('Importar Excel')
+            ->assertDontSee('Eliminar');
+    }
+
+    public function test_administrador_puede_eliminar_asesor_sin_historial(): void
+    {
+        $this->seed();
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload(['email' => 'asesor.eliminar@test.local', 'ci' => 'ASE-DEL']))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'ASE-DEL')->firstOrFail();
+        $userId = $asesor->user_id;
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->delete(route('asesores.destroy', $asesor))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Usuario eliminado correctamente.');
+
+        $this->assertDatabaseMissing('users', ['id' => $userId]);
+        $this->assertDatabaseMissing('asesores', ['id' => $asesor->id]);
+        $this->assertDatabaseHas('audit_logs', [
+            'modelo' => 'User',
+            'modelo_id' => $userId,
+            'accion' => 'eliminar_asesor',
+        ]);
+    }
+
+    public function test_administrador_desactiva_asesor_con_historial(): void
+    {
+        $this->seed();
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload(['email' => 'asesor.historial@test.local', 'ci' => 'ASE-HIS']))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'ASE-HIS')->firstOrFail();
+        Venta::create([
+            'lote_id' => Lote::firstOrFail()->id,
+            'cliente_id' => Cliente::firstOrFail()->id,
+            'user_id' => $asesor->user_id,
+            'fecha_venta' => now()->toDateString(),
+            'precio_final' => 10000,
+            'cuota_inicial' => 1000,
+            'numero_cuotas' => 0,
+            'estado' => 'activa',
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->delete(route('asesores.destroy', $asesor))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'El usuario tiene registros asociados, por seguridad fue desactivado.');
+
+        $this->assertDatabaseHas('users', ['id' => $asesor->user_id, 'estado' => 'inactivo']);
+        $this->assertDatabaseHas('asesores', ['id' => $asesor->id, 'activo' => false]);
+        $this->assertDatabaseHas('audit_logs', [
+            'modelo' => 'User',
+            'modelo_id' => $asesor->user_id,
+            'accion' => 'desactivar_asesor',
+        ]);
+    }
+
+    public function test_usuario_no_admin_recibe_403_al_eliminar_asesor(): void
+    {
+        $this->seed();
+        $vendedor = User::where('email', 'vendedor@impacto.test')->firstOrFail();
+        $asesor = Asesor::firstOrFail();
+        $urbanizacionId = $vendedor->urbanizacionesAsignadas()->firstOrFail()->id;
+
+        $this->actingAs($vendedor)
+            ->withSession(['urbanizacion_id' => $urbanizacionId])
+            ->delete(route('asesores.destroy', $asesor))
+            ->assertForbidden();
     }
 
     public function test_admin_importa_asesor_y_supervisor_desde_equipo_comercial(): void

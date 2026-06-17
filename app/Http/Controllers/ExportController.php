@@ -8,6 +8,7 @@ use App\Models\Cuota;
 use App\Models\Lote;
 use App\Models\Reserva;
 use App\Models\Venta;
+use App\Services\LotPricingService;
 use App\Services\ReservationVisibilityService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,10 +16,15 @@ use Illuminate\Http\Response;
 
 class ExportController extends Controller
 {
-    public function __invoke(string $tipo, ReservationVisibilityService $visibility): Response
+    public function __invoke(string $tipo, ReservationVisibilityService $visibility, LotPricingService $pricingService): Response
     {
+        $canSeePrecioOportunidad = request()->user()?->hasAnyRole(['administrador', 'super administrador']) ?? false;
+        $loteHeaders = $canSeePrecioOportunidad
+            ? ['urbanizacion', 'manzano', 'lote', 'estado', 'superficie', 'precio_oportunidad', 'precio_real', 'cuota_inicial_tipo', 'cuota_inicial_valor', 'cuota_inicial']
+            : ['urbanizacion', 'manzano', 'lote', 'estado', 'superficie', 'precio_real', 'cuota_inicial_tipo', 'cuota_inicial_valor', 'cuota_inicial'];
+
         $map = [
-            'lotes' => [UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion'))->get(), ['urbanizacion', 'manzano', 'lote', 'estado', 'superficie', 'precio', 'cuota_inicial_tipo', 'cuota_inicial_valor', 'cuota_inicial']],
+            'lotes' => [UrbanizacionContext::lotes(Lote::with('manzano.urbanizacion'))->get(), $loteHeaders],
             'clientes' => [UrbanizacionContext::clientes(Cliente::query())->get(), ['nombre', 'documento', 'telefono', 'email']],
             'ventas' => [$this->filteredVentas(Venta::with('cliente', 'lote.manzano'))->get(), ['fecha', 'cliente', 'lote', 'tipo_operacion', 'precio_base_usd', 'precio_final_usd', 'precio_final_bs', 'tipo_cambio_usd_bs', 'precio_final', 'estado']],
             'cuotas' => [UrbanizacionContext::cuotas(Cuota::with('venta.cliente'))->get(), ['cliente', 'numero', 'monto', 'pagado', 'saldo', 'estado']],
@@ -31,7 +37,7 @@ class ExportController extends Controller
         $csv = implode(',', $headers)."\n";
 
         foreach ($rows as $row) {
-            $csv .= implode(',', array_map(fn ($value) => '"'.str_replace('"', '""', (string) $value).'"', $this->values($tipo, $row)))."\n";
+            $csv .= implode(',', array_map(fn ($value) => '"'.str_replace('"', '""', (string) $value).'"', $this->values($tipo, $row, $pricingService, $canSeePrecioOportunidad)))."\n";
         }
 
         return response($csv, 200, [
@@ -40,16 +46,34 @@ class ExportController extends Controller
         ]);
     }
 
-    private function values(string $tipo, mixed $row): array
+    private function values(string $tipo, mixed $row, LotPricingService $pricingService, bool $canSeePrecioOportunidad): array
     {
         return match ($tipo) {
-            'lotes' => [$row->manzano->urbanizacion->nombre, $row->manzano->codigo, $row->codigo, $row->estado, $row->superficie, $row->precio, $row->cuota_inicial_tipo, $row->cuota_inicial_valor, $row->cuotaInicialTexto()],
+            'lotes' => $this->loteValues($row, $pricingService, $canSeePrecioOportunidad),
             'clientes' => [$row->nombre, $row->documento, $row->telefono, $row->email],
             'ventas' => [$row->fecha_venta?->format('Y-m-d'), $row->cliente->nombre, $row->lote->manzano->codigo.'-'.$row->lote->codigo, $row->tipo_operacion, $row->precio_base_usd, $row->precio_final_usd, $row->precio_final_bs, $row->tipo_cambio_usd_bs, $row->precio_final, $row->estado],
             'cuotas' => [$row->venta->cliente->nombre, $row->numero, $row->monto, $row->monto_pagado, $row->saldo_pendiente, $row->estado],
             'reservas' => [$row->cliente->nombre, $row->lote->codigo, $row->tipo_operacion, $row->fecha_vencimiento?->format('Y-m-d'), $row->monto_reserva, $row->estado],
             'caja' => [$row->fecha?->format('Y-m-d'), $row->cliente?->nombre, $row->tipo, $row->concepto, $row->metodo_pago, $row->referencia, $row->monto, $row->estado],
         };
+    }
+
+    private function loteValues(Lote $row, LotPricingService $pricingService, bool $canSeePrecioOportunidad): array
+    {
+        $payload = $pricingService->payload($row);
+        $values = [$row->manzano->urbanizacion->nombre, $row->manzano->codigo, $row->codigo, $row->estado, $row->superficie];
+
+        if ($canSeePrecioOportunidad) {
+            $values[] = $row->precio;
+        }
+
+        return [
+            ...$values,
+            $payload['credit_usd'],
+            $row->cuota_inicial_tipo,
+            $row->cuota_inicial_valor,
+            $row->cuotaInicialTexto(),
+        ];
     }
 
     private function filteredVentas(Builder $query): Builder
