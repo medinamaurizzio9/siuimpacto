@@ -4,8 +4,6 @@ window.createImpactoMapZoom = function createImpactoMapZoom(options) {
     if (!map || !layer) return null;
     if (map._impactoMapZoom) return map._impactoMapZoom;
 
-    console.log('map zoom loaded');
-
     const zoomLabel = options.zoomLabel;
     const canPan = options.canPan || (() => true);
     const shouldIgnorePanTarget = options.shouldIgnorePanTarget || (() => false);
@@ -176,6 +174,8 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
     const modal = options.modal || document.getElementById('lote-map-modal');
     const overlay = options.overlay || document.getElementById('lotModalOverlay');
     const closeButton = options.closeButton || document.getElementById('lotModalClose');
+    const endpointBase = (options.endpointBase || '/mapa/lote').replace(/\/$/, '');
+    const loteCache = new Map();
 
     if (!modal) {
         return {
@@ -219,8 +219,90 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         link.style.pointerEvents = shouldShow ? 'auto' : 'none';
     }
 
+    function showModal() {
+        overlay?.classList.remove('hidden');
+        modal.classList.remove('hidden');
+        document.body.classList.add('map-modal-open');
+        overlay?.setAttribute('aria-hidden', 'false');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function showLoading(point) {
+        write(fields.title, `Lote ${point.dataset.label || ''}`);
+        write(fields.urbanizacion, '');
+        write(fields.manzano, '');
+        write(fields.lote, '');
+        write(fields.superficie, '');
+        write(fields.precio, '');
+        write(fields.precioBs, '');
+        write(fields.cuotaInicial, '');
+        write(fields.cuotaInicialBs, '');
+        write(fields.estado, point.dataset.estado || '');
+
+        if (fields.estado) {
+            fields.estado.className = `badge ${point.dataset.estado || ''}`;
+        }
+
+        Object.values(links).forEach((link) => setLink(link, '', false));
+
+        if (fields.message) {
+            fields.message.hidden = false;
+            fields.message.textContent = 'Cargando datos del lote...';
+        }
+
+        showModal();
+    }
+
+    async function fetchLote(loteId) {
+        if (loteCache.has(loteId)) {
+            return loteCache.get(loteId);
+        }
+
+        const response = await fetch(`${endpointBase}/${loteId}`, {
+            headers: { Accept: 'application/json' },
+        });
+
+        if (!response.ok) {
+            throw new Error('No se pudo cargar el lote.');
+        }
+
+        const data = await response.json();
+        loteCache.set(loteId, data);
+        return data;
+    }
+
+    function fillModal(data, point) {
+        write(fields.title, `Lote ${data.label || point.dataset.label || ''}`);
+        write(fields.urbanizacion, data.urbanizacion);
+        write(fields.manzano, data.manzano);
+        write(fields.lote, data.lote);
+        write(fields.superficie, data.superficie);
+        write(fields.precio, data.precio);
+        write(fields.precioBs, data.precio_bs);
+        write(fields.cuotaInicial, data.cuota_inicial);
+        write(fields.cuotaInicialBs, data.cuota_inicial_bs);
+        write(fields.estado, data.estado);
+
+        if (fields.estado) {
+            fields.estado.className = `badge ${data.estado || ''}`;
+        }
+
+        setLink(links.detalle, data.urls?.detalle, true);
+        setLink(links.reservar, data.urls?.reservar, data.permisos?.reservar);
+        setLink(links.vender, data.urls?.vender, data.permisos?.vender);
+        setLink(links.editar, data.urls?.editar, data.permisos?.editar);
+
+        const hasAction = Boolean(data.permisos?.reservar || data.permisos?.vender || data.permisos?.editar);
+
+        if (fields.message) {
+            fields.message.hidden = hasAction || data.estado === 'disponible';
+            fields.message.textContent = hasAction || data.estado === 'disponible'
+                ? ''
+                : 'Este lote no tiene acciones disponibles para tu rol o estado actual.';
+        }
+    }
+
     function close() {
-        console.log('modal button clicked');
         modal.classList.add('hidden');
         overlay?.classList.add('hidden');
         document.body.classList.remove('map-modal-open');
@@ -232,53 +314,26 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         });
     }
 
-    function open(point) {
+    async function open(point) {
         if (!point) return;
 
-        write(fields.title, `Lote ${point.dataset.label || ''}`);
-        write(fields.urbanizacion, point.dataset.urbanizacion);
-        write(fields.manzano, point.dataset.manzano);
-        write(fields.lote, point.dataset.lote);
-        write(fields.superficie, point.dataset.superficie);
-        write(fields.precio, point.dataset.precio);
-        write(fields.precioBs, point.dataset.precioBs);
-        write(fields.cuotaInicial, point.dataset.cuotaInicial);
-        write(fields.cuotaInicialBs, point.dataset.cuotaInicialBs);
-        write(fields.estado, point.dataset.estado);
+        const loteId = point.dataset.loteId;
+        if (!loteId) return;
 
-        if (fields.estado) {
-            fields.estado.className = `badge ${point.dataset.estado || ''}`;
+        showLoading(point);
+
+        try {
+            fillModal(await fetchLote(loteId), point);
+        } catch (error) {
+            if (fields.message) {
+                fields.message.hidden = false;
+                fields.message.textContent = 'No se pudo cargar la informacion del lote.';
+            }
         }
-
-        setLink(links.detalle, point.dataset.detailUrl, true);
-        setLink(links.reservar, point.dataset.reservaUrl, point.dataset.canReservar === '1');
-        setLink(links.vender, point.dataset.ventaUrl, point.dataset.canVender === '1');
-        setLink(links.editar, point.dataset.editUrl, point.dataset.canEditar === '1');
-
-        const hasAction = point.dataset.canReservar === '1'
-            || point.dataset.canVender === '1'
-            || point.dataset.canEditar === '1';
-
-        if (fields.message) {
-            fields.message.hidden = hasAction || point.dataset.estado === 'disponible';
-            fields.message.textContent = hasAction || point.dataset.estado === 'disponible'
-                ? ''
-                : 'Este lote no tiene acciones disponibles para tu rol o estado actual.';
-        }
-
-        overlay?.classList.remove('hidden');
-        modal.classList.remove('hidden');
-        document.body.classList.add('map-modal-open');
-        overlay?.setAttribute('aria-hidden', 'false');
-        modal.setAttribute('aria-hidden', 'false');
     }
 
     closeButton?.addEventListener('click', close);
     overlay?.addEventListener('click', close);
-    Object.values(links).forEach((link) => {
-        link?.addEventListener('click', () => console.log('modal button clicked'));
-    });
-
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
             close();

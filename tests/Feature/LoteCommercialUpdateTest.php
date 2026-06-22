@@ -205,7 +205,14 @@ class LoteCommercialUpdateTest extends TestCase
             ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
             ->get(route('mapa'))
             ->assertOk()
-            ->assertSee('data-precio="$us 27,000.00"', false);
+            ->assertSee('data-lote-id="'.$lote->id.'"', false)
+            ->assertDontSee('data-precio=', false);
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->getJson(route('mapa.lotes.show-json', $lote))
+            ->assertOk()
+            ->assertJsonPath('precio', '$us 27,000.00');
     }
 
     public function test_credito_usa_precio_real_y_contado_semicontado_usan_precio_oportunidad(): void

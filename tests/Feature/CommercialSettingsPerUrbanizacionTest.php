@@ -85,8 +85,15 @@ class CommercialSettingsPerUrbanizacionTest extends TestCase
             ->get(route('mapa'))
             ->assertOk()
             ->assertSee($lote->codigo)
-            ->assertSee('data-precio="$us 23,000.00"', false)
-            ->assertSee('data-precio-bs="Bs 161,000.00"', false);
+            ->assertSee('data-lote-id="'.$lote->id.'"', false)
+            ->assertDontSee('data-precio=', false);
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->zona2->id])
+            ->getJson(route('mapa.lotes.show-json', $lote))
+            ->assertOk()
+            ->assertJsonPath('precio', '$us 23,000.00')
+            ->assertJsonPath('precio_bs', 'Bs 161,000.00');
     }
 
     public function test_dias_reserva_por_lote(): void

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Urbanizacion;
 use App\Models\Lote;
+use App\Services\LotPricingService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,45 @@ class MapaController extends Controller
             'message' => 'Lote ubicado correctamente',
             'coord_x' => $lote->coord_x,
             'coord_y' => $lote->coord_y,
+        ]);
+    }
+
+    public function loteJson(Request $request, Lote $lote, LotPricingService $pricingService): JsonResponse
+    {
+        abort_unless(UrbanizacionContext::loteBelongsToCurrent($lote), 403, 'No tienes acceso a esta urbanizacion');
+
+        $lote->loadMissing('manzano.urbanizacion');
+        $pricePayload = $pricingService->payload($lote);
+        $user = $request->user();
+        $isVendedor = $user?->hasRole('vendedor');
+        $isSupervisor = $user?->hasRole('supervisor');
+
+        $canReservar = $lote->estado === 'disponible' && ($user?->can('crear reservas') ?? false);
+        $canVender = ! $isVendedor && ! $isSupervisor && ($user?->can('crear ventas') ?? false) && in_array($lote->estado, ['disponible', 'reservado'], true);
+        $canEditar = ! $isVendedor && ! $isSupervisor && ($user?->can('editar lotes') ?? false);
+
+        return response()->json([
+            'urbanizacion' => $lote->manzano->urbanizacion->nombre,
+            'manzano' => $lote->manzano->codigo,
+            'lote' => $lote->codigo,
+            'label' => $lote->manzano->codigo.'-'.$lote->codigo,
+            'superficie' => number_format((float) $lote->superficie, 2).' m2',
+            'precio' => $pricingService->formatUsd($pricePayload['credit_usd']),
+            'precio_bs' => $pricingService->formatBs($pricePayload['credit_bs']),
+            'cuota_inicial' => $pricingService->formatUsd($pricePayload['initial_credit_usd']),
+            'cuota_inicial_bs' => $pricingService->formatBs($pricePayload['initial_credit_bs']),
+            'estado' => $lote->estado,
+            'urls' => [
+                'detalle' => route('lotes.show', $lote),
+                'reservar' => route('reservas.create', ['lote_id' => $lote->id]),
+                'vender' => route('ventas.create', ['lote_id' => $lote->id]),
+                'editar' => route('lotes.edit', $lote),
+            ],
+            'permisos' => [
+                'reservar' => $canReservar,
+                'vender' => $canVender,
+                'editar' => $canEditar,
+            ],
         ]);
     }
 

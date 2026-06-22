@@ -32,9 +32,18 @@ class MapaLotePermisosTest extends TestCase
             ->get(route('mapa'))
             ->assertOk()
             ->assertSee('data-modal-link="reservar"', false)
-            ->assertSee('data-can-reservar="1"', false)
-            ->assertSee('data-can-vender="0"', false)
-            ->assertSee('data-can-editar="0"', false);
+            ->assertSee('data-lote-id="'.$lote->id.'"', false)
+            ->assertDontSee('data-can-reservar=', false)
+            ->assertDontSee('data-can-vender=', false)
+            ->assertDontSee('data-can-editar=', false);
+
+        $this->actingAs($vendedor)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->getJson(route('mapa.lotes.show-json', $lote))
+            ->assertOk()
+            ->assertJsonPath('permisos.reservar', true)
+            ->assertJsonPath('permisos.vender', false)
+            ->assertJsonPath('permisos.editar', false);
     }
 
     public function test_vendedor_no_puede_acceder_a_crear_venta_por_url(): void
@@ -143,10 +152,10 @@ class MapaLotePermisosTest extends TestCase
         $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
         $urbanizacion = Urbanizacion::firstOrFail();
         $urbanizacion->update(['plano_imagen' => 'planos/demo.jpg']);
-        Lote::whereHas('manzano', fn ($query) => $query->where('urbanizacion_id', $urbanizacion->id))
+        $lote = Lote::whereHas('manzano', fn ($query) => $query->where('urbanizacion_id', $urbanizacion->id))
             ->where('estado', 'disponible')
-            ->firstOrFail()
-            ->update(['coord_x' => 50, 'coord_y' => 50]);
+            ->firstOrFail();
+        $lote->update(['coord_x' => 50, 'coord_y' => 50]);
 
         $this->actingAs($admin)
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
@@ -155,9 +164,18 @@ class MapaLotePermisosTest extends TestCase
             ->assertSee('data-modal-link="reservar"', false)
             ->assertSee('data-modal-link="vender"', false)
             ->assertSee('data-modal-link="editar"', false)
-            ->assertSee('data-can-reservar="1"', false)
-            ->assertSee('data-can-vender="1"', false)
-            ->assertSee('data-can-editar="1"', false);
+            ->assertSee('data-lote-id="'.$lote->id.'"', false)
+            ->assertDontSee('data-can-reservar=', false)
+            ->assertDontSee('data-can-vender=', false)
+            ->assertDontSee('data-can-editar=', false);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->getJson(route('mapa.lotes.show-json', $lote))
+            ->assertOk()
+            ->assertJsonPath('permisos.reservar', true)
+            ->assertJsonPath('permisos.vender', true)
+            ->assertJsonPath('permisos.editar', true);
     }
 
     public function test_modal_renderiza_urls_correctas_para_admin(): void
@@ -176,13 +194,23 @@ class MapaLotePermisosTest extends TestCase
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
             ->get(route('mapa'))
             ->assertOk()
-            ->assertSee('data-detail-url="'.route('lotes.show', $lote).'"', false)
-            ->assertSee('data-reserva-url="'.route('reservas.create', ['lote_id' => $lote->id]).'"', false)
-            ->assertSee('data-venta-url="'.route('ventas.create', ['lote_id' => $lote->id]).'"', false)
-            ->assertSee('data-edit-url="'.route('lotes.edit', $lote).'"', false)
+            ->assertSee('data-lote-id="'.$lote->id.'"', false)
+            ->assertDontSee('data-detail-url=', false)
+            ->assertDontSee('data-reserva-url=', false)
+            ->assertDontSee('data-venta-url=', false)
+            ->assertDontSee('data-edit-url=', false)
             ->assertSee('data-modal-link="detalle"', false)
             ->assertSee('id="lotModalClose"', false)
             ->assertSee('id="lotModalOverlay"', false);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->getJson(route('mapa.lotes.show-json', $lote))
+            ->assertOk()
+            ->assertJsonPath('urls.detalle', route('lotes.show', $lote))
+            ->assertJsonPath('urls.reservar', route('reservas.create', ['lote_id' => $lote->id]))
+            ->assertJsonPath('urls.vender', route('ventas.create', ['lote_id' => $lote->id]))
+            ->assertJsonPath('urls.editar', route('lotes.edit', $lote));
     }
 
     public function test_admin_puede_acceder_a_crear_venta_y_editar_lote(): void

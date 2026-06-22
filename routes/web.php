@@ -71,6 +71,7 @@ Route::middleware('auth')->group(function (): void {
         Route::middleware(['urbanizacion.selected', 'urbanizacion.access'])->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->middleware('can:ver dashboard')->name('dashboard');
         Route::get('/mapa', MapaController::class)->middleware('can:ver lotes')->name('mapa');
+        Route::get('/mapa/lote/{lote}', [MapaController::class, 'loteJson'])->middleware('can:ver lotes')->name('mapa.lotes.show-json');
         Route::patch('/mapa/lotes/{lote}/posicion', [MapaController::class, 'updateLotePosition'])->middleware('can:editar lotes')->name('mapa.lotes.posicion');
         Route::delete('/mapa/lotes/{lote}/posicion', [MapaController::class, 'clearLotePosition'])->middleware('can:editar lotes')->name('mapa.lotes.posicion.clear');
 

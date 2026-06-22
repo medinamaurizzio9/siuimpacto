@@ -44,11 +44,19 @@ class CommercialPricingTest extends TestCase
             ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
             ->get(route('mapa'))
             ->assertOk()
-            ->assertSee('data-precio="$us 22,000.00"', false)
-            ->assertSee('data-precio-bs="Bs 153,120.00"', false)
-            ->assertSee('data-cuota-inicial="$us 5,000.00"', false)
-            ->assertSee('data-cuota-inicial-bs="Bs 34,800.00"', false)
+            ->assertSee('data-lote-id="'.$lote->id.'"', false)
+            ->assertDontSee('data-precio=', false)
+            ->assertDontSee('data-cuota-inicial=', false)
             ->assertSee($lote->codigo);
+
+        $this->actingAs($this->admin)
+            ->withSession(['urbanizacion_id' => $this->urbanizacion->id])
+            ->getJson(route('mapa.lotes.show-json', $lote))
+            ->assertOk()
+            ->assertJsonPath('precio', '$us 22,000.00')
+            ->assertJsonPath('precio_bs', 'Bs 153,120.00')
+            ->assertJsonPath('cuota_inicial', '$us 5,000.00')
+            ->assertJsonPath('cuota_inicial_bs', 'Bs 34,800.00');
     }
 
     public function test_reserva_contado_y_semicontado_muestran_precio_base(): void
