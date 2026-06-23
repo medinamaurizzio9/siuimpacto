@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CommercialSettingController;
+use App\Http\Controllers\ConfiguracionUrbanizacionGpsController;
 use App\Http\Controllers\CuotaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExportController;
@@ -68,10 +69,17 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/grupos-comerciales/pdf', [GrupoComercialController::class, 'pdf'])->middleware('can:exportar reportes')->name('grupos-comerciales.pdf');
         Route::resource('grupos-comerciales', GrupoComercialController::class)->parameters(['grupos-comerciales' => 'grupoComercial'])->except('show')->middlewareFor(['index'], 'can:editar asesores')->middlewareFor(['create', 'store', 'edit', 'update', 'destroy'], 'can:administrar usuarios');
 
+        Route::prefix('administracion')->name('admin.')->group(function (): void {
+            Route::resource('urbanizacion-gps', ConfiguracionUrbanizacionGpsController::class)
+                ->parameters(['urbanizacion-gps' => 'urbanizacionReferencia'])
+                ->except('show');
+        });
+
         Route::middleware(['urbanizacion.selected', 'urbanizacion.access'])->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->middleware('can:ver dashboard')->name('dashboard');
         Route::get('/mapa', MapaController::class)->middleware('can:ver lotes')->name('mapa');
         Route::get('/mapa/lote/{lote}', [MapaController::class, 'loteJson'])->middleware('can:ver lotes')->name('mapa.lotes.show-json');
+        Route::post('/mapa/mi-ubicacion', [MapaController::class, 'myLocation'])->middleware('can:ver lotes')->name('mapa.mi-ubicacion');
         Route::patch('/mapa/lotes/{lote}/posicion', [MapaController::class, 'updateLotePosition'])->middleware('can:editar lotes')->name('mapa.lotes.posicion');
         Route::delete('/mapa/lotes/{lote}/posicion', [MapaController::class, 'clearLotePosition'])->middleware('can:editar lotes')->name('mapa.lotes.posicion.clear');
 

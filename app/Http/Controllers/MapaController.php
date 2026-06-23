@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Urbanizacion;
 use App\Models\Lote;
+use App\Services\GeoPlanCalibrationService;
 use App\Services\LotPricingService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 use Illuminate\View\View;
 
 class MapaController extends Controller
@@ -22,7 +24,10 @@ class MapaController extends Controller
             $request->session()->put('urbanizacion_id', $requestedId);
         }
 
-        $urbanizacion = Urbanizacion::with('manzanos.lotes')
+        $urbanizacion = Urbanizacion::with([
+            'manzanos.lotes',
+            'referencias' => fn ($query) => $query->where('activo', true)->orderBy('nombre'),
+        ])
             ->find(UrbanizacionContext::currentId());
 
         $estado = $request->query('estado');
@@ -88,6 +93,33 @@ class MapaController extends Controller
                 'vender' => $canVender,
                 'editar' => $canEditar,
             ],
+        ]);
+    }
+
+    public function myLocation(Request $request, GeoPlanCalibrationService $calibrationService): JsonResponse
+    {
+        $data = $request->validate([
+            'latitud' => ['required', 'numeric', 'between:-90,90'],
+            'longitud' => ['required', 'numeric', 'between:-180,180'],
+            'accuracy' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $urbanizacion = Urbanizacion::findOrFail(UrbanizacionContext::currentId());
+
+        try {
+            $position = $calibrationService->gpsToPlanPosition($urbanizacion, (float) $data['latitud'], (float) $data['longitud']);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'x' => $position['x'],
+            'y' => $position['y'],
+            'accuracy' => isset($data['accuracy']) ? round((float) $data['accuracy'], 2) : null,
         ]);
     }
 

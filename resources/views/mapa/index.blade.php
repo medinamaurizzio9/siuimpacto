@@ -1,5 +1,17 @@
 @extends('layouts.app')
 @section('content')
+@php
+    $referenceIcons = [
+        'ingreso' => '🚪',
+        'construccion' => '🏠',
+        'servicio' => '💧',
+        'mirador' => '👁',
+        'parque' => '🌳',
+        'transporte' => '🚌',
+        'sector' => '📍',
+        'otro' => '⭐',
+    ];
+@endphp
 <div class="topbar">
     <h1 class="title">Mapa de disponibilidad</h1>
     <div class="actions">
@@ -66,6 +78,13 @@
                 @endforeach
                 <span>Sin ubicacion: {{ $unlocatedLotes->count() }}</span>
             </div>
+            @if(($urbanizacion->referencias ?? collect())->isNotEmpty())
+                <div class="gps-reference-legend">
+                    @foreach($urbanizacion->referencias->pluck('tipo_referencia')->filter()->unique()->values() as $tipoReferencia)
+                        <span>{{ $referenceIcons[$tipoReferencia] ?? $referenceIcons['otro'] }} {{ ucfirst($tipoReferencia) }}</span>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         @if(! $urbanizacion->plano_imagen)
@@ -117,7 +136,10 @@
                     <button class="btn secondary" type="button" data-zoom-out title="Alejar" aria-label="Alejar">Zoom -</button>
                     <button class="btn secondary" type="button" data-zoom-reset title="Restablecer vista" aria-label="Restablecer vista">Restablecer</button>
                     <button class="btn secondary" type="button" data-zoom-fullscreen title="Pantalla completa" aria-label="Pantalla completa">Pantalla completa</button>
+                    <button class="btn secondary" type="button" id="toggle-gps-points">Puntos GPS</button>
+                    <button class="btn secondary" type="button" id="toggle-my-location">📍 Mi ubicacion</button>
                     <span class="zoom-value" data-zoom-value>100%</span>
+                    <span class="gps-location-status" id="gps-location-status" hidden></span>
                 </div>
 
                 <div class="plan-map-viewport" id="plan-map">
@@ -129,6 +151,34 @@
                             @endphp
                             <button type="button" class="map-point lot-point {{ $lote->estado }}" data-lote-id="{{ $lote->id }}" data-label="{{ $manzano->codigo }}-{{ $lote->codigo }}" data-estado="{{ $lote->estado }}" title="{{ $manzano->codigo }}-{{ $lote->codigo }}" style="left: {{ max(0, min(100, (float) $lote->coord_x)) }}%; top: {{ max(0, min(100, (float) $lote->coord_y)) }}%;"><span>{{ $lote->codigo }}</span></button>
                         @endforeach
+                        <div class="gps-reference-layer hidden" id="gps-reference-layer" aria-label="Puntos GPS de referencia">
+                            @forelse($urbanizacion->referencias as $referencia)
+                                @php($hasPlanPosition = ! is_null($referencia->plano_x) && ! is_null($referencia->plano_y))
+                                <div @class(['gps-reference-marker', 'on-plan' => $hasPlanPosition]) @if($hasPlanPosition) style="left: {{ max(0, min(100, (float) $referencia->plano_x)) }}%; top: {{ max(0, min(100, (float) $referencia->plano_y)) }}%;" @endif>
+                                    <span class="gps-reference-pin">{{ $referenceIcons[$referencia->tipo_referencia] ?? $referenceIcons['otro'] }}</span>
+                                    <div>
+                                        <strong>{{ $referencia->nombre }}</strong>
+                                        <small>{{ ucfirst($referencia->tipo_referencia ?? 'otro') }}</small>
+                                        <small>{{ $referencia->latitud }}, {{ $referencia->longitud }}</small>
+                                        @if($referencia->descripcion)
+                                            <small>{{ $referencia->descripcion }}</small>
+                                        @endif
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="gps-reference-marker">
+                                    <span class="gps-reference-pin">{{ $referenceIcons['otro'] }}</span>
+                                    <div>
+                                        <strong>Sin puntos GPS configurados</strong>
+                                        <small>Registre referencias en Administracion.</small>
+                                    </div>
+                                </div>
+                            @endforelse
+                        </div>
+                        <div class="current-location-marker hidden" id="current-location-marker" aria-live="polite">
+                            <span></span>
+                            <strong>Usted esta aqui</strong>
+                        </div>
                     </div>
                 </div>
 
@@ -180,7 +230,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const mouseCoordinates = document.getElementById('mouse-coordinates');
     const toggleEdit = document.getElementById('toggle-edit');
     const toggleLock = document.getElementById('toggle-edit-lock');
+    const toggleGpsPoints = document.getElementById('toggle-gps-points');
+    const gpsReferenceLayer = document.getElementById('gps-reference-layer');
+    const toggleMyLocation = document.getElementById('toggle-my-location');
+    const gpsLocationStatus = document.getElementById('gps-location-status');
+    const currentLocationMarker = document.getElementById('current-location-marker');
     const csrf = '{{ csrf_token() }}';
+    let locationWatcher = null;
+    let lastLocationSentAt = 0;
     const zoomController = window.createImpactoMapZoom({
         map,
         layer,
@@ -215,6 +272,100 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleLock.textContent = editLocked ? 'Desbloquear edicion' : 'Bloquear edicion';
         map.classList.toggle('editing', editMode && !editLocked);
         message.textContent = editLocked ? 'Edicion bloqueada para evitar movimientos accidentales.' : 'Edicion desbloqueada.';
+    });
+
+    toggleGpsPoints?.addEventListener('click', () => {
+        gpsReferenceLayer?.classList.toggle('hidden');
+        const visible = gpsReferenceLayer && !gpsReferenceLayer.classList.contains('hidden');
+        toggleGpsPoints.classList.toggle('active', visible);
+        toggleGpsPoints.textContent = visible ? 'Ocultar GPS' : 'Puntos GPS';
+    });
+
+    function setGpsStatus(text, level = '') {
+        if (!gpsLocationStatus) return;
+        gpsLocationStatus.hidden = false;
+        gpsLocationStatus.textContent = text;
+        gpsLocationStatus.className = `gps-location-status ${level}`;
+    }
+
+    function accuracyLevel(accuracy) {
+        if (accuracy <= 10) return 'good';
+        if (accuracy <= 20) return 'medium';
+        return 'bad';
+    }
+
+    function moveCurrentLocation(data) {
+        if (!currentLocationMarker) return;
+        currentLocationMarker.style.left = `${data.x}%`;
+        currentLocationMarker.style.top = `${data.y}%`;
+        currentLocationMarker.classList.remove('hidden');
+        currentLocationMarker.title = `Precision GPS: ${data.accuracy ?? '--'} metros`;
+    }
+
+    async function sendCurrentLocation(position) {
+        const coords = position.coords;
+        setGpsStatus('Calculando ubicacion en plano...');
+
+        const response = await fetch('{{ route('mapa.mi-ubicacion') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                latitud: coords.latitude,
+                longitud: coords.longitude,
+                accuracy: coords.accuracy,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            setGpsStatus(data.message || 'No se pudo calcular la ubicacion en el plano.', 'bad');
+            return;
+        }
+
+        moveCurrentLocation(data);
+        setGpsStatus(`Precision GPS: ${data.accuracy ?? '--'} metros`, accuracyLevel(Number(data.accuracy || 999)));
+    }
+
+    toggleMyLocation?.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            setGpsStatus('Este dispositivo no permite geolocalizacion.', 'bad');
+            return;
+        }
+
+        if (locationWatcher) {
+            navigator.geolocation.clearWatch(locationWatcher);
+            locationWatcher = null;
+            toggleMyLocation.classList.remove('active');
+            toggleMyLocation.textContent = '📍 Mi ubicacion';
+            setGpsStatus('Ubicacion GPS desactivada.');
+            return;
+        }
+
+        setGpsStatus('Buscando ubicacion...');
+        toggleMyLocation.classList.add('active');
+        toggleMyLocation.textContent = 'Detener ubicacion';
+
+        locationWatcher = navigator.geolocation.watchPosition(
+            (position) => {
+                const now = Date.now();
+                if (now - lastLocationSentAt < 3000) return;
+                lastLocationSentAt = now;
+                sendCurrentLocation(position);
+            },
+            () => {
+                setGpsStatus('No se pudo obtener la ubicacion GPS.', 'bad');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 5000,
+            }
+        );
     });
 
     editManzano?.addEventListener('change', () => {

@@ -62,6 +62,11 @@ class Urbanizacion extends Model
         return $this->hasMany(Manzano::class);
     }
 
+    public function referencias(): HasMany
+    {
+        return $this->hasMany(UrbanizacionReferencia::class);
+    }
+
     public function scopeWithLotStats(Builder $query): Builder
     {
         return $query->withCount([
