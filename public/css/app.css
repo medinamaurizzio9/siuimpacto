@@ -219,7 +219,8 @@ textarea { min-height: 90px; resize: vertical; }
 .lot-modal .map-dialog,
 .lot-modal a,
 .lot-modal button { pointer-events: auto; }
-.map-dialog { position: relative; z-index: 10001; background: #fff; width: min(480px, 100%); border-radius: 8px; padding: 20px; }
+.map-dialog { position: relative; z-index: 10001; background: #fff; width: min(480px, 100%); border-radius: 8px; padding: 20px; overflow-wrap: anywhere; }
+.lot-modal-actions { flex-wrap: wrap; }
 .map-grid { display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 10px; }
 .lot-tile { min-height: 78px; border: 2px solid transparent; border-radius: 8px; padding: 10px; display: grid; gap: 4px; align-content: center; }
 .login-page { position: relative; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: linear-gradient(135deg, #102027, #0f766e); background-position: center; background-repeat: no-repeat; background-size: cover; }
@@ -365,8 +366,69 @@ textarea { min-height: 90px; resize: vertical; }
 @media (max-width: 768px) {
     .grid-urbanizaciones { grid-template-columns: 1fr; }
     .filter-form, .filter-form.compact, .filter-form.list-filters, .filter-form.sales-filters, .filter-form.cash-filters { grid-template-columns: 1fr; }
+    .main { padding: 16px; }
+    .map-shell { min-height: 420px; }
+    .plan-map-viewport { min-height: 420px; overflow: auto; touch-action: pan-x pan-y; }
+    .plan-map-layer { transform-origin: top left; min-width: 720px; }
+    .map-zoom-controls {
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        width: auto;
+        max-width: calc(100vw - 16px);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding: 8px;
+        justify-content: stretch;
+        align-items: stretch;
+    }
+    .map-zoom-controls .btn {
+        min-width: 0;
+        min-height: 42px;
+        padding: 7px 8px;
+        font-size: 12px;
+        line-height: 1.15;
+        white-space: normal;
+        text-align: center;
+    }
+    .zoom-value,
+    .gps-location-status {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        text-align: center;
+    }
+    .lot-modal { padding: 12px; align-items: center; }
+    .map-dialog {
+        width: 92vw;
+        max-width: 92vw;
+        max-height: 85vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 20px;
+        border-radius: 16px;
+    }
+    .map-dialog p { overflow-wrap: anywhere; }
+    .lot-modal-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        align-items: stretch;
+    }
+    .lot-modal-actions a,
+    .lot-modal-actions button {
+        width: 100%;
+        min-height: 48px;
+        white-space: normal;
+        text-align: center;
+        padding: 10px;
+    }
     .map-point,
     .lot-point { inline-size: clamp(6px, 2vw, 16px); block-size: clamp(6px, 2vw, 16px); font-size: clamp(5px, 1vw, 9px); border-width: clamp(1px, .2vw, 2px); }
+}
+@media (max-width: 420px) {
+    .lot-modal-actions { grid-template-columns: 1fr; }
+    .map-dialog { padding: 16px; }
 }
 @media print {
     .sidebar, .btn, .no-print, .footer { display: none !important; }

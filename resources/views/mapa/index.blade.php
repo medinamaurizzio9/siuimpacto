@@ -137,7 +137,7 @@
                     <button class="btn secondary" type="button" data-zoom-reset title="Restablecer vista" aria-label="Restablecer vista">Restablecer</button>
                     <button class="btn secondary" type="button" data-zoom-fullscreen title="Pantalla completa" aria-label="Pantalla completa">Pantalla completa</button>
                     <button class="btn secondary" type="button" id="toggle-gps-points">Puntos GPS</button>
-                    <button class="btn secondary" type="button" id="toggle-my-location">📍 Mi ubicacion</button>
+                    <button class="btn secondary" type="button" id="toggle-my-location">Mi ubicacion</button>
                     <span class="zoom-value" data-zoom-value>100%</span>
                     <span class="gps-location-status" id="gps-location-status" hidden></span>
                 </div>
@@ -196,7 +196,7 @@
                         <p><strong>Cuota inicial en Bs:</strong> <span data-modal-cuota-inicial-bs></span></p>
                         <p><strong>Estado:</strong> <span class="badge" data-modal-estado></span></p>
                         <p class="muted" data-modal-message hidden></p>
-                        <div class="actions">
+                        <div class="actions lot-modal-actions">
                             <a class="btn secondary" href="" data-modal-link="detalle">Ver detalle</a>
                             <a class="btn secondary" href="" data-modal-link="reservar" hidden>Reservar lote</a>
                             <a class="btn secondary" href="" data-modal-link="vender" hidden>Vender lote</a>
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.geolocation.clearWatch(locationWatcher);
             locationWatcher = null;
             toggleMyLocation.classList.remove('active');
-            toggleMyLocation.textContent = '📍 Mi ubicacion';
+            toggleMyLocation.textContent = 'Mi ubicacion';
             setGpsStatus('Ubicacion GPS desactivada.');
             return;
         }
