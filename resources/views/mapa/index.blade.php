@@ -131,7 +131,9 @@
             <p class="muted map-help">Las posiciones se guardan proporcionalmente, por eso se mantienen en celular y escritorio.</p>
 
             <div class="map-shell">
-                <div class="map-zoom-controls">
+                <button class="btn secondary map-tools-toggle" type="button" id="map-tools-toggle" aria-expanded="false" aria-controls="map-tools-panel">Mapa</button>
+                <button class="btn map-location-quick" type="button" id="quick-my-location" aria-label="Activar mi ubicacion">GPS</button>
+                <div class="map-zoom-controls" id="map-tools-panel">
                     <button class="btn secondary" type="button" data-zoom-in title="Acercar" aria-label="Acercar">Zoom +</button>
                     <button class="btn secondary" type="button" data-zoom-out title="Alejar" aria-label="Alejar">Zoom -</button>
                     <button class="btn secondary" type="button" data-zoom-reset title="Restablecer vista" aria-label="Restablecer vista">Restablecer</button>
@@ -233,6 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleGpsPoints = document.getElementById('toggle-gps-points');
     const gpsReferenceLayer = document.getElementById('gps-reference-layer');
     const toggleMyLocation = document.getElementById('toggle-my-location');
+    const quickMyLocation = document.getElementById('quick-my-location');
+    const mapToolsToggle = document.getElementById('map-tools-toggle');
+    const mapToolsPanel = document.getElementById('map-tools-panel');
     const gpsLocationStatus = document.getElementById('gps-location-status');
     const currentLocationMarker = document.getElementById('current-location-marker');
     const csrf = '{{ csrf_token() }}';
@@ -279,6 +284,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const visible = gpsReferenceLayer && !gpsReferenceLayer.classList.contains('hidden');
         toggleGpsPoints.classList.toggle('active', visible);
         toggleGpsPoints.textContent = visible ? 'Ocultar GPS' : 'Puntos GPS';
+    });
+
+    mapToolsToggle?.addEventListener('click', () => {
+        const open = !mapToolsPanel.classList.contains('open');
+        mapToolsPanel.classList.toggle('open', open);
+        mapToolsToggle.classList.toggle('active', open);
+        mapToolsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
 
     function setGpsStatus(text, level = '') {
@@ -341,6 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.geolocation.clearWatch(locationWatcher);
             locationWatcher = null;
             toggleMyLocation.classList.remove('active');
+            quickMyLocation?.classList.remove('active');
             toggleMyLocation.textContent = 'Mi ubicacion';
             setGpsStatus('Ubicacion GPS desactivada.');
             return;
@@ -348,6 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setGpsStatus('Buscando ubicacion...');
         toggleMyLocation.classList.add('active');
+        quickMyLocation?.classList.add('active');
         toggleMyLocation.textContent = 'Detener ubicacion';
 
         locationWatcher = navigator.geolocation.watchPosition(
@@ -366,6 +380,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 maximumAge: 5000,
             }
         );
+    });
+
+    quickMyLocation?.addEventListener('click', () => {
+        toggleMyLocation?.click();
+        quickMyLocation.classList.toggle('active', Boolean(locationWatcher));
     });
 
     editManzano?.addEventListener('change', () => {
