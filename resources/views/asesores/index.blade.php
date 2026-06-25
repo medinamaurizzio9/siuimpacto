@@ -26,7 +26,7 @@
 </form>
 
 <table class="table">
-    <thead><tr><th>Asesor</th><th>CI</th><th>Celular</th><th>Supervisor</th><th>Grupo</th><th>Urbanizaciones</th><th>Estado</th><th></th></tr></thead>
+    <thead><tr><th>Asesor</th><th>CI</th><th>Celular</th><th>Supervisor</th><th>Grupo</th><th>Urbanizaciones</th><th>Rol equipo</th><th>Estado</th><th></th></tr></thead>
     <tbody>
     @foreach($asesores as $asesor)
         <tr>
@@ -36,6 +36,7 @@
             <td>{{ $asesor->supervisor?->name ?? 'Sin supervisor' }}</td>
             <td>{{ $asesor->grupo?->nombre ?? $asesor->grupo_comercial ?? 'Sin grupo' }}</td>
             <td>{{ $asesor->user->urbanizacionesAsignadas->pluck('nombre')->join(', ') ?: 'Sin asignar' }}</td>
+            <td><span class="badge {{ $asesor->is_team_leader ? 'convertida' : 'bloqueado' }}">{{ $asesor->is_team_leader ? 'Lider/Supervisor' : 'Asesor' }}</span></td>
             <td><span class="badge {{ $asesor->activo ? 'activa' : 'cancelada' }}">{{ $asesor->activo ? 'activo' : 'inactivo' }}</span></td>
             <td class="actions">
                 @can('editar asesores')<a class="btn secondary" href="{{ route('asesores.edit', $asesor) }}">Editar</a>@endcan

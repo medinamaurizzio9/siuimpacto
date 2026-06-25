@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Asesor;
 use App\Models\Cliente;
 use App\Models\Lote;
+use App\Models\Reserva;
 use App\Models\SupervisorProfile;
 use App\Models\Urbanizacion;
 use App\Models\User;
@@ -121,6 +122,163 @@ class AsesorManagementTest extends TestCase
         $asesor->user->refresh();
         $this->assertTrue($asesor->user->must_change_password);
         $this->assertTrue(Hash::check($asesor->ci, $asesor->user->password));
+    }
+
+    public function test_admin_puede_marcar_asesor_como_lider_de_equipo(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'lider.equipo@test.local',
+                'ci' => 'LIDER-100',
+                'is_team_leader' => '1',
+                'urbanizaciones' => [$urbanizacion->id],
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'LIDER-100')->firstOrFail();
+
+        $this->assertTrue($asesor->is_team_leader);
+        $this->assertTrue($asesor->team_leader_role_assigned);
+        $this->assertTrue($asesor->user->hasRole('supervisor'));
+        $this->assertTrue($asesor->user->hasRole('vendedor'));
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('asesores.index'))
+            ->assertOk()
+            ->assertSee('Rol equipo')
+            ->assertSee('Lider/Supervisor');
+    }
+
+    public function test_asesor_lider_ve_clientes_y_reservas_de_su_equipo_y_puede_cancelar(): void
+    {
+        $this->seed();
+
+        $urbanizacion = Urbanizacion::firstOrFail();
+        $lider = $this->crearAsesorUsuario('lider.visible@test.local', 'LIDER-VIS', null, true, $urbanizacion);
+        $asesorEquipo = $this->crearAsesorUsuario('asesor.equipo.lider@test.local', 'ASE-LID', $lider->id, false, $urbanizacion);
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $clienteEquipo = $this->crearCliente($urbanizacion, $asesorEquipo, 'Cliente Equipo Lider', 'CLI-LIDER');
+        $clienteAjeno = $this->crearCliente($urbanizacion, $admin, 'Cliente Ajeno Lider', 'CLI-AJENO-LIDER');
+        $reservaEquipo = $this->crearReserva($urbanizacion, $clienteEquipo, $asesorEquipo, 'RES-LIDER');
+        $reservaAjena = $this->crearReserva($urbanizacion, $clienteAjeno, $admin, 'RES-AJENA-LIDER');
+
+        $this->actingAs($lider)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('clientes.index'))
+            ->assertOk()
+            ->assertSee($clienteEquipo->nombre)
+            ->assertDontSee($clienteAjeno->nombre);
+
+        $this->actingAs($lider)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('reservas.index'))
+            ->assertOk()
+            ->assertSee($reservaEquipo->lote->codigo)
+            ->assertDontSee($reservaAjena->lote->codigo);
+
+        $this->actingAs($lider)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->delete(route('reservas.destroy', $reservaEquipo), ['motivo' => 'Gestion del lider'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('reservas', ['id' => $reservaEquipo->id, 'estado' => 'cancelada']);
+    }
+
+    public function test_asesor_lider_aparece_como_supervisor_seleccionable_en_grupos(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+        $lider = $this->crearAsesorUsuario('lider.grupo@test.local', 'LIDER-GRP', null, true, $urbanizacion);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('grupos-comerciales.create'))
+            ->assertOk()
+            ->assertSee($lider->name);
+    }
+
+    public function test_al_desmarcar_lider_pierde_rol_supervisor_si_fue_asignado_por_liderazgo(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'lider.remover@test.local',
+                'ci' => 'LIDER-REM',
+                'is_team_leader' => '1',
+                'urbanizaciones' => [$urbanizacion->id],
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'LIDER-REM')->firstOrFail();
+        $this->assertTrue($asesor->user->hasRole('supervisor'));
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('asesores.update', $asesor), $this->payload([
+                'email' => 'lider.remover@test.local',
+                'ci' => 'LIDER-REM',
+                'urbanizaciones' => [$urbanizacion->id],
+                'activo' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor->refresh();
+        $this->assertFalse($asesor->is_team_leader);
+        $this->assertFalse($asesor->team_leader_role_assigned);
+        $this->assertFalse($asesor->user->fresh()->hasRole('supervisor'));
+        $this->assertTrue($asesor->user->fresh()->hasRole('vendedor'));
+    }
+
+    public function test_al_desmarcar_lider_no_pierde_rol_supervisor_original(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+        $user = User::factory()->create(['name' => 'Supervisor Original Asesor', 'email' => 'supervisor.original.asesor@test.local']);
+        $user->assignRole(['vendedor', 'supervisor']);
+        $user->urbanizacionesAsignadas()->syncWithoutDetaching([$urbanizacion->id => ['activo' => true]]);
+        $asesor = Asesor::create([
+            'user_id' => $user->id,
+            'nombre' => 'Supervisor',
+            'apellido' => 'Original',
+            'ci' => 'SUP-ORIG-ASE',
+            'email' => $user->email,
+            'activo' => true,
+            'is_team_leader' => true,
+            'team_leader_role_assigned' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('asesores.update', $asesor), [
+                ...$this->payload([
+                    'nombre' => 'Supervisor',
+                    'apellido' => 'Original',
+                    'email' => $user->email,
+                    'ci' => 'SUP-ORIG-ASE',
+                    'urbanizaciones' => [$urbanizacion->id],
+                    'activo' => '1',
+                ]),
+            ])
+            ->assertRedirect(route('asesores.index'));
+
+        $this->assertFalse($asesor->fresh()->is_team_leader);
+        $this->assertTrue($user->fresh()->hasRole('supervisor'));
     }
 
     public function test_admin_ve_boton_importar_y_vendedor_no_lo_ve(): void
@@ -359,5 +517,60 @@ class AsesorManagementTest extends TestCase
         file_put_contents($path, implode("\n", $lines));
 
         return new UploadedFile($path, $name, 'text/csv', null, true);
+    }
+
+    private function crearAsesorUsuario(string $email, string $ci, ?int $supervisorId, bool $lider, Urbanizacion $urbanizacion): User
+    {
+        $user = User::factory()->create(['name' => 'Usuario '.$ci, 'email' => $email]);
+        $user->assignRole('vendedor');
+        if ($lider) {
+            $user->assignRole('supervisor');
+        }
+        $user->urbanizacionesAsignadas()->syncWithoutDetaching([$urbanizacion->id => ['activo' => true]]);
+
+        Asesor::create([
+            'user_id' => $user->id,
+            'supervisor_id' => $supervisorId,
+            'nombre' => 'Usuario',
+            'apellido' => $ci,
+            'ci' => $ci,
+            'email' => $email,
+            'activo' => true,
+            'is_team_leader' => $lider,
+            'team_leader_role_assigned' => $lider,
+        ]);
+
+        return $user;
+    }
+
+    private function crearCliente(Urbanizacion $urbanizacion, User $user, string $nombre, string $documento): Cliente
+    {
+        return Cliente::create([
+            'urbanizacion_id' => $urbanizacion->id,
+            'created_by' => $user->id,
+            'nombre' => $nombre,
+            'documento' => $documento,
+            'telefono' => '70000000',
+            'email' => strtolower($documento).'@test.local',
+        ]);
+    }
+
+    private function crearReserva(Urbanizacion $urbanizacion, Cliente $cliente, User $user, string $codigoLote): Reserva
+    {
+        $lote = Lote::whereHas('manzano', fn ($query) => $query->where('urbanizacion_id', $urbanizacion->id))
+            ->where('estado', 'disponible')
+            ->firstOrFail();
+        $lote->update(['codigo' => $codigoLote, 'estado' => 'reservado']);
+
+        return Reserva::create([
+            'cliente_id' => $cliente->id,
+            'lote_id' => $lote->id,
+            'usuario_id' => $user->id,
+            'fecha_reserva' => now(),
+            'fecha_vencimiento' => now()->addDays(5),
+            'monto_reserva' => 100,
+            'estado' => 'activa',
+            'tipo_operacion' => 'contado',
+        ]);
     }
 }

@@ -21,12 +21,16 @@ class Asesor extends Model
         'direccion',
         'grupo_comercial',
         'activo',
+        'is_team_leader',
+        'team_leader_role_assigned',
     ];
 
     protected function casts(): array
     {
         return [
             'activo' => 'boolean',
+            'is_team_leader' => 'boolean',
+            'team_leader_role_assigned' => 'boolean',
         ];
     }
 

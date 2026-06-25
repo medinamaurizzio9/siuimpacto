@@ -71,9 +71,11 @@ class AsesorController extends Controller
                 'direccion' => $data['direccion'] ?? null,
                 'grupo_comercial' => $data['grupo_comercial'] ?? null,
                 'activo' => $request->boolean('activo'),
+                'is_team_leader' => $request->boolean('is_team_leader'),
             ]);
 
             $user->urbanizacionesAsignadas()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
+            $this->syncTeamLeaderRole($asesor, $request->boolean('is_team_leader'));
 
             $auditService->log($asesor, 'crear_asesor', 'Asesor creado con usuario de sistema.', null, $asesor->toArray(), $request);
             $auditService->log($asesor, 'asignar_urbanizaciones_asesor', 'Urbanizaciones asignadas al asesor.', null, ['urbanizaciones' => $data['urbanizaciones'] ?? []], $request);
@@ -110,12 +112,14 @@ class AsesorController extends Controller
                 'direccion' => $data['direccion'] ?? null,
                 'grupo_comercial' => $data['grupo_comercial'] ?? null,
                 'activo' => $request->boolean('activo'),
+                'is_team_leader' => $request->boolean('is_team_leader'),
             ]);
             $asesor->user->update([
                 'name' => trim($data['nombre'].' '.$data['apellido']),
                 'email' => $data['email'],
             ]);
             $asesor->user->urbanizacionesAsignadas()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
+            $this->syncTeamLeaderRole($asesor, $request->boolean('is_team_leader'));
 
             $auditService->log($asesor, 'editar_asesor', 'Asesor actualizado.', $before, $asesor->fresh()->toArray(), $request);
             $auditService->log($asesor, 'asignar_urbanizaciones_asesor', 'Urbanizaciones actualizadas del asesor.', ['urbanizaciones' => $beforeUrbanizaciones], ['urbanizaciones' => $data['urbanizaciones'] ?? []], $request);
@@ -303,7 +307,7 @@ class AsesorController extends Controller
 
         return [
             'asesor' => $asesor,
-            'supervisores' => User::role('supervisor')->orderBy('name')->get(),
+            'supervisores' => $this->supervisorCandidates(),
             'grupos' => $request->user()->hasRole('supervisor')
                 ? GrupoComercial::where('supervisor_id', $request->user()->id)->where('activo', true)->orderBy('nombre')->get()
                 : GrupoComercial::where('activo', true)->orderBy('nombre')->get(),
@@ -376,7 +380,7 @@ class AsesorController extends Controller
             return User::whereKey($request->user()->id)->get();
         }
 
-        return User::role('supervisor')->orderBy('name')->get();
+        return $this->supervisorCandidates();
     }
 
     private function validated(Request $request, ?Asesor $asesor = null): array
@@ -400,6 +404,7 @@ class AsesorController extends Controller
             'urbanizaciones' => ['nullable', 'array'],
             'urbanizaciones.*' => ['integer', Rule::in($allowedUrbanizaciones)],
             'activo' => ['nullable', 'boolean'],
+            'is_team_leader' => ['nullable', 'boolean'],
         ]);
 
         if ($request->user()->hasRole('supervisor')) {
@@ -470,5 +475,45 @@ class AsesorController extends Controller
         return collect($urbanizaciones)
             ->mapWithKeys(fn ($id) => [(int) $id => ['activo' => true]])
             ->all();
+    }
+
+    private function syncTeamLeaderRole(Asesor $asesor, bool $isTeamLeader): void
+    {
+        $asesor->loadMissing('user');
+        $user = $asesor->user;
+
+        if ($isTeamLeader) {
+            $assignedBySystem = ! $user->hasRole('supervisor');
+
+            if ($assignedBySystem) {
+                $user->assignRole('supervisor');
+            }
+
+            $asesor->forceFill([
+                'is_team_leader' => true,
+                'team_leader_role_assigned' => $assignedBySystem || $asesor->team_leader_role_assigned,
+            ])->save();
+
+            return;
+        }
+
+        if ($asesor->team_leader_role_assigned && $user->hasRole('supervisor')) {
+            $user->removeRole('supervisor');
+        }
+
+        $asesor->forceFill([
+            'is_team_leader' => false,
+            'team_leader_role_assigned' => false,
+        ])->save();
+    }
+
+    private function supervisorCandidates()
+    {
+        $ids = User::role('supervisor')->pluck('id')
+            ->merge(Asesor::where('is_team_leader', true)->pluck('user_id'))
+            ->unique()
+            ->values();
+
+        return User::whereIn('id', $ids)->orderBy('name')->get();
     }
 }

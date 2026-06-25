@@ -31,6 +31,13 @@
         @endrole
     </div>
     <label class="check-row"><input type="checkbox" name="activo" value="1" @checked(old('activo', $asesor->activo ?? true))> Activo</label>
+    <label class="check-row">
+        <input type="checkbox" name="is_team_leader" value="1" @checked(old('is_team_leader', $asesor->is_team_leader ?? false))>
+        <span>
+            Lider de equipo / Supervisor
+            <small class="muted" style="display:block;font-weight:600;">Al activar esta opcion, el asesor tendra privilegios de supervisor y podra ver la gestion de su equipo.</small>
+        </span>
+    </label>
     <div class="field full">
         <label>Urbanizaciones asignadas</label>
         <div class="check-list">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GrupoComercial;
+use App\Models\Asesor;
 use App\Models\User;
 use App\Services\AuditService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -28,7 +29,7 @@ class GrupoComercialController extends Controller
             'grupos' => $query->paginate(15)->appends($request->query()),
             'supervisores' => $request->user()->hasRole('supervisor')
                 ? User::whereKey($request->user()->id)->get()
-                : User::role('supervisor')->orderBy('name')->get(),
+                : $this->supervisorCandidates(),
         ]);
     }
 
@@ -103,7 +104,7 @@ class GrupoComercialController extends Controller
     {
         return [
             'grupo' => $grupo,
-            'supervisores' => User::role('supervisor')->orderBy('name')->get(),
+            'supervisores' => $this->supervisorCandidates(),
         ];
     }
 
@@ -115,5 +116,15 @@ class GrupoComercialController extends Controller
             'supervisor_id' => ['nullable', 'exists:users,id'],
             'activo' => ['nullable', 'boolean'],
         ]);
+    }
+
+    private function supervisorCandidates()
+    {
+        $ids = User::role('supervisor')->pluck('id')
+            ->merge(Asesor::where('is_team_leader', true)->pluck('user_id'))
+            ->unique()
+            ->values();
+
+        return User::whereIn('id', $ids)->orderBy('name')->get();
     }
 }
