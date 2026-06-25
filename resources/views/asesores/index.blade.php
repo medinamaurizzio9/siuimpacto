@@ -13,6 +13,18 @@
 </div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
 
+<form class="card form" method="GET" style="margin-bottom:18px;">
+    <div class="field"><label>Buscar</label><input name="buscar" value="{{ request('buscar') }}" placeholder="Nombre, CI o email"></div>
+    <div class="field"><label>Estado</label><select name="estado"><option value="">Todos</option><option value="activo" @selected(request('estado') === 'activo')>Activo</option><option value="inactivo" @selected(request('estado') === 'inactivo')>Inactivo</option></select></div>
+    <div class="field"><label>Grupo comercial</label><select name="grupo_comercial_id"><option value="">Todos</option>@foreach($grupos as $grupo)<option value="{{ $grupo->id }}" @selected((int) request('grupo_comercial_id') === $grupo->id)>{{ $grupo->nombre }}</option>@endforeach</select></div>
+    @unless(auth()->user()?->hasRole('supervisor'))
+        <div class="field"><label>Supervisor</label><select name="supervisor_id"><option value="">Todos</option>@foreach($supervisores as $supervisor)<option value="{{ $supervisor->id }}" @selected((int) request('supervisor_id') === $supervisor->id)>{{ $supervisor->name }}</option>@endforeach</select></div>
+    @endunless
+    <div class="field"><label>Urbanizacion asignada</label><select name="urbanizacion_id"><option value="">Todas</option>@foreach($urbanizaciones as $urbanizacion)<option value="{{ $urbanizacion->id }}" @selected((int) request('urbanizacion_id') === $urbanizacion->id)>{{ $urbanizacion->nombre }}</option>@endforeach</select></div>
+    <div class="field"><label>&nbsp;</label><button type="submit" class="btn">Filtrar</button></div>
+    <div class="field"><label>&nbsp;</label><a class="btn secondary" href="{{ route('asesores.index') }}">Limpiar</a></div>
+</form>
+
 <table class="table">
     <thead><tr><th>Asesor</th><th>CI</th><th>Celular</th><th>Supervisor</th><th>Grupo</th><th>Urbanizaciones</th><th>Estado</th><th></th></tr></thead>
     <tbody>
@@ -41,5 +53,5 @@
     @endforeach
     </tbody>
 </table>
-<div class="pagination">{{ $asesores->links() }}</div>
+<div class="pagination">{{ $asesores->appends(request()->query())->links() }}</div>
 @endsection

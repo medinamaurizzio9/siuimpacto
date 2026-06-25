@@ -16,6 +16,7 @@ class AuthSecurityTest extends TestCase
         $this->get(route('login'))
             ->assertOk()
             ->assertSee('name="email"', false)
+            ->assertSee('js/password-toggle.js', false)
             ->assertSee('value=""', false)
             ->assertDontSee('admin@impacto.test', false)
             ->assertDontSee('gerente@impacto.test', false)
@@ -28,6 +29,30 @@ class AuthSecurityTest extends TestCase
         $this->assertStringContainsString('value="{{ old(\'email\') }}"', $source);
         $this->assertStringNotContainsString("old('email',", $source);
         $this->assertStringNotContainsString('value="password"', $source);
+    }
+
+    public function test_toggle_de_contrasena_se_carga_en_vistas_con_password(): void
+    {
+        $this->seed();
+
+        $admin = User::factory()->create([
+            'email' => 'toggle.password@example.com',
+            'password' => Hash::make('temporal123'),
+            'must_change_password' => true,
+        ]);
+        $admin->assignRole('administrador');
+
+        $this->actingAs($admin)
+            ->get(route('password.change'))
+            ->assertOk()
+            ->assertSee('js/password-toggle.js', false)
+            ->assertSee('type="password"', false);
+
+        $script = file_get_contents(public_path('js/password-toggle.js'));
+
+        $this->assertStringContainsString('Mostrar contraseña', $script);
+        $this->assertStringContainsString('Ocultar contraseña', $script);
+        $this->assertStringContainsString('input[type="password"]', $script);
     }
 
     public function test_login_rellena_solo_email_antiguo_despues_de_error(): void

@@ -25,19 +25,19 @@ class AsesorController extends Controller
 {
     public function index(Request $request, UserDeletionService $deletionService): View
     {
-        $query = Asesor::with('user', 'supervisor', 'grupo', 'user.urbanizacionesAsignadas')->latest();
+        $query = $this->scopedQuery($request);
+        $this->applyIndexFilters($query, $request);
 
-        if ($request->user()->hasRole('supervisor')) {
-            $query->where('supervisor_id', $request->user()->id);
-        }
-
-        $asesores = $query->paginate(15);
+        $asesores = $query->paginate(15)->appends($request->query());
         $asesores->getCollection()->each(
             fn (Asesor $asesor) => $asesor->setAttribute('has_delete_history', $deletionService->hasHistoricalRecords($asesor->user))
         );
 
         return view('asesores.index', [
             'asesores' => $asesores,
+            'grupos' => $this->availableGrupos($request),
+            'supervisores' => $this->availableSupervisores($request),
+            'urbanizaciones' => $this->availableUrbanizaciones($request),
         ]);
     }
 
@@ -321,6 +321,62 @@ class AsesorController extends Controller
         }
 
         return $query;
+    }
+
+    private function applyIndexFilters($query, Request $request): void
+    {
+        if ($request->filled('buscar')) {
+            $term = trim((string) $request->query('buscar'));
+            $query->where(function ($builder) use ($term): void {
+                $builder->where('nombre', 'like', "%{$term}%")
+                    ->orWhere('apellido', 'like', "%{$term}%")
+                    ->orWhere('ci', 'like', "%{$term}%")
+                    ->orWhere('email', 'like', "%{$term}%")
+                    ->orWhereHas('user', fn ($userQuery) => $userQuery
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%"));
+            });
+        }
+
+        if (in_array($request->query('estado'), ['activo', 'inactivo'], true)) {
+            $query->where('activo', $request->query('estado') === 'activo');
+        }
+
+        if ($request->filled('grupo_comercial_id')) {
+            $query->where('grupo_comercial_id', $request->integer('grupo_comercial_id'));
+        }
+
+        if ($request->filled('supervisor_id') && ! $request->user()->hasRole('supervisor')) {
+            $query->where('supervisor_id', $request->integer('supervisor_id'));
+        }
+
+        if ($request->filled('urbanizacion_id')) {
+            $query->whereHas('user.urbanizacionesAsignadas', fn ($urbanizacionQuery) => $urbanizacionQuery
+                ->where('urbanizaciones.id', $request->integer('urbanizacion_id')));
+        }
+    }
+
+    private function availableUrbanizaciones(Request $request)
+    {
+        return $request->user()->hasRole('supervisor')
+            ? $request->user()->urbanizacionesAsignadas()->orderBy('nombre')->get()
+            : Urbanizacion::where('estado', 'activa')->orderBy('nombre')->get();
+    }
+
+    private function availableGrupos(Request $request)
+    {
+        return $request->user()->hasRole('supervisor')
+            ? GrupoComercial::where('supervisor_id', $request->user()->id)->orderBy('nombre')->get()
+            : GrupoComercial::orderBy('nombre')->get();
+    }
+
+    private function availableSupervisores(Request $request)
+    {
+        if ($request->user()->hasRole('supervisor')) {
+            return User::whereKey($request->user()->id)->get();
+        }
+
+        return User::role('supervisor')->orderBy('name')->get();
     }
 
     private function validated(Request $request, ?Asesor $asesor = null): array

@@ -30,7 +30,10 @@ class ReservaController extends Controller
         return view('reservas.index', [
             'reservas' => $query->paginate(50)->appends($request->query()),
             'vendedores' => $visibility->vendedores($request->user()),
+            'urbanizaciones' => UrbanizacionContext::accessibleUrbanizaciones($request->user()),
             'tiposOperacion' => Reserva::TIPOS_OPERACION,
+            'canFilterAsesor' => $request->user()->hasAnyRole(['super administrador', 'administrador', 'gerente', 'supervisor']),
+            'canDeleteReserva' => $request->user()->hasAnyRole(['super administrador', 'administrador', 'gerente', 'supervisor']),
         ]);
     }
 
@@ -40,16 +43,27 @@ class ReservaController extends Controller
             $query->where('estado', $request->query('estado'));
         }
 
+        if ($request->filled('urbanizacion_id') && UrbanizacionContext::userCanAccess($request->user(), $request->integer('urbanizacion_id'))) {
+            $query->whereHas('lote.manzano', fn ($builder) => $builder->where('urbanizacion_id', $request->integer('urbanizacion_id')));
+        }
+
         if ($request->filled('tipo_operacion')) {
             $query->where('tipo_operacion', $request->query('tipo_operacion'));
         }
 
-        if ($request->filled('usuario_id') && $visibility->canFilterUser($request->user(), $request->integer('usuario_id'))) {
+        if (
+            $request->filled('usuario_id')
+            && $request->user()->hasAnyRole(['super administrador', 'administrador', 'gerente', 'supervisor'])
+            && $visibility->canFilterUser($request->user(), $request->integer('usuario_id'))
+        ) {
             $query->where('usuario_id', $request->integer('usuario_id'));
         }
 
         if ($request->filled('cliente')) {
-            $query->whereHas('cliente', fn ($builder) => $builder->where('nombre', 'like', '%'.$request->query('cliente').'%'));
+            $term = trim((string) $request->query('cliente'));
+            $query->whereHas('cliente', fn ($builder) => $builder
+                ->where('nombre', 'like', "%{$term}%")
+                ->orWhere('documento', 'like', "%{$term}%"));
         }
 
         if ($request->filled('documento')) {
@@ -146,13 +160,17 @@ class ReservaController extends Controller
         return redirect()->route('reservas.index')->with('status', 'Operacion realizada correctamente.');
     }
 
-    public function destroy(Request $request, Reserva $reserva, ReservationService $reservationService): RedirectResponse
+    public function destroy(Request $request, Reserva $reserva, ReservationService $reservationService, ReservationVisibilityService $visibility, AuditService $auditService): RedirectResponse
     {
-        abort_unless($request->user()->hasAnyRole(['administrador', 'gerente']), 403, 'No tienes permiso para cancelar reservas.');
+        abort_unless($request->user()->hasAnyRole(['super administrador', 'administrador', 'gerente', 'supervisor']), 403, 'No tienes permiso para cancelar reservas.');
         abort_unless(UrbanizacionContext::reservaBelongsToCurrent($reserva), 403, 'No tienes acceso a esta urbanizacion');
+        $visibleUserIds = $visibility->visibleUserIds($request->user());
+        abort_unless($visibleUserIds === null || ($reserva->usuario_id && in_array((int) $reserva->usuario_id, $visibleUserIds, true)), 403, 'No tienes permiso para cancelar esta reserva.');
 
         $data = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
+        $before = $reserva->loadMissing('cliente', 'lote.manzano.urbanizacion', 'usuario')->toArray();
         $reservationService->cancel($reserva, $request->user(), $data['motivo']);
+        $auditService->log($reserva, 'eliminar_reserva', $data['motivo'], $before, $reserva->fresh()->toArray(), $request);
 
         return back()->with('status', 'Operacion realizada correctamente.');
     }

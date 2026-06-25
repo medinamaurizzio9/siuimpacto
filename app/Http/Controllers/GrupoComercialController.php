@@ -22,9 +22,30 @@ class GrupoComercialController extends Controller
             $query->where('supervisor_id', $request->user()->id);
         }
 
+        $this->applyIndexFilters($query, $request);
+
         return view('grupos-comerciales.index', [
-            'grupos' => $query->paginate(15),
+            'grupos' => $query->paginate(15)->appends($request->query()),
+            'supervisores' => $request->user()->hasRole('supervisor')
+                ? User::whereKey($request->user()->id)->get()
+                : User::role('supervisor')->orderBy('name')->get(),
         ]);
+    }
+
+    private function applyIndexFilters($query, Request $request): void
+    {
+        if ($request->filled('buscar')) {
+            $term = trim((string) $request->query('buscar'));
+            $query->where('nombre', 'like', "%{$term}%");
+        }
+
+        if ($request->filled('supervisor_id') && ! $request->user()->hasRole('supervisor')) {
+            $query->where('supervisor_id', $request->integer('supervisor_id'));
+        }
+
+        if (in_array($request->query('estado'), ['activo', 'inactivo'], true)) {
+            $query->where('activo', $request->query('estado') === 'activo');
+        }
     }
 
     public function create(): View

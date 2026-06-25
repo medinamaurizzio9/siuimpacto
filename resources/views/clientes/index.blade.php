@@ -32,6 +32,18 @@
         </select>
     </div>
 
+    @if($canFilterAsesor)
+        <div class="field">
+            <label for="usuario_id">Asesor</label>
+            <select id="usuario_id" name="usuario_id">
+                <option value="">Todos</option>
+                @foreach($asesores as $asesor)
+                    <option value="{{ $asesor->id }}" @selected((int) ($filters['usuario_id'] ?? 0) === $asesor->id)>{{ $asesor->name }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
+
     <div class="field">
         <label for="per_page">Mostrar</label>
         <select id="per_page" name="per_page">
@@ -59,6 +71,7 @@
                 <th><x-sort-link field="documento">Documento</x-sort-link></th>
                 <th><x-sort-link field="telefono">Telefono</x-sort-link></th>
                 <th><x-sort-link field="email">Email</x-sort-link></th>
+                <th>Asesor</th>
                 <th><x-sort-link field="ventas">Ventas</x-sort-link></th>
                 <th></th>
             </tr>
@@ -70,6 +83,7 @@
                     <td>{{ $cliente->documento }}</td>
                     <td>@include('clientes.partials.whatsapp-link', ['cliente' => $cliente])</td>
                     <td>{{ $cliente->email }}</td>
+                    <td>{{ $cliente->createdBy?->name ?? 'Sin asesor' }}</td>
                     <td>{{ $cliente->ventas_count }}</td>
                     <td class="actions">
                         <a class="btn secondary" href="{{ route('clientes.show', $cliente) }}">Ver</a>
@@ -87,7 +101,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="empty-table">No se encontraron clientes con los filtros aplicados.</td>
+                    <td colspan="7" class="empty-table">No se encontraron clientes con los filtros aplicados.</td>
                 </tr>
             @endforelse
         </tbody>

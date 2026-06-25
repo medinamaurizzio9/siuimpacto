@@ -6,6 +6,15 @@
 </div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
 
+<form class="card form" method="GET" style="margin-bottom:18px;">
+    <div class="field"><label>Buscar asesor</label><input name="buscar" value="{{ request('buscar') }}" placeholder="Nombre, email o CI"></div>
+    <div class="field"><label>Urbanizacion</label><select name="urbanizacion_id"><option value="">Todas</option>@foreach($urbanizaciones as $urbanizacion)<option value="{{ $urbanizacion->id }}" @selected((int) request('urbanizacion_id') === $urbanizacion->id)>{{ $urbanizacion->nombre }}</option>@endforeach</select></div>
+    <div class="field"><label>Estado</label><select name="estado"><option value="">Todos</option><option value="activo" @selected(request('estado') === 'activo')>Activo</option><option value="inactivo" @selected(request('estado') === 'inactivo')>Inactivo</option></select></div>
+    <div class="field check-row compact" style="align-self:end;"><label><input type="checkbox" name="solo_activos" value="1" @checked(request()->boolean('solo_activos'))> Solo asesores activos</label></div>
+    <div class="field"><label>&nbsp;</label><button type="submit" class="btn">Filtrar</button></div>
+    <div class="field"><label>&nbsp;</label><a class="btn secondary" href="{{ route('urbanizaciones.asignaciones') }}">Limpiar</a></div>
+</form>
+
 <div class="card">
     <table class="table">
         <thead><tr><th>Asesor</th><th>Urbanizaciones asignadas</th><th></th></tr></thead>
@@ -37,5 +46,8 @@
         @endforeach
         </tbody>
     </table>
+    @if($usuarios->hasPages())
+        <div class="pagination-wrapper">{{ $usuarios->appends(request()->query())->links() }}</div>
+    @endif
 </div>
 @endsection

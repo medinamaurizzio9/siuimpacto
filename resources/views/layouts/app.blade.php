@@ -21,5 +21,6 @@
     @yield('content')
 @endauth
 <script src="{{ asset('js/sidebar-menu.js') }}"></script>
+<script src="{{ asset('js/password-toggle.js') }}"></script>
 </body>
 </html>

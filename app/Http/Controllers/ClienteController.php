@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreClienteRequest;
+use App\Models\Asesor;
 use App\Models\Cliente;
+use App\Models\User;
 use App\Services\AuditService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +23,14 @@ class ClienteController extends Controller
         $ventas = (string) $request->query('ventas', '');
         $sort = $this->sort($request);
 
-        $clientes = UrbanizacionContext::clientes(Cliente::withCount('ventas'), $urbanizacionId)
+        $query = UrbanizacionContext::clientes(Cliente::withCount('ventas')->with('createdBy'), $urbanizacionId);
+        $this->applyVisibility($query, $request->user());
+
+        if ($request->filled('usuario_id') && $this->canFilterAsesor($request->user())) {
+            $query->where('created_by', $request->integer('usuario_id'));
+        }
+
+        $clientes = $query
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($nested) use ($search): void {
                     $nested->where('nombre', 'like', "%{$search}%")
@@ -38,10 +47,13 @@ class ClienteController extends Controller
 
         return view('clientes.index', [
             'clientes' => $clientes,
+            'asesores' => $this->asesoresForFilter($request->user()),
+            'canFilterAsesor' => $this->canFilterAsesor($request->user()),
             'filters' => [
                 'q' => $search,
                 'ventas' => $ventas,
                 'per_page' => $perPage,
+                'usuario_id' => $request->integer('usuario_id') ?: null,
             ],
         ]);
     }
@@ -62,7 +74,10 @@ class ClienteController extends Controller
             return response()->json([]);
         }
 
-        $clientes = UrbanizacionContext::clientes(Cliente::query())
+        $query = UrbanizacionContext::clientes(Cliente::query());
+        $this->applyVisibility($query, $request->user());
+
+        $clientes = $query
             ->where(function ($query) use ($q): void {
                 $query->where('nombre', 'like', "%{$q}%")
                     ->orWhere('documento', 'like', "%{$q}%")
@@ -113,6 +128,7 @@ class ClienteController extends Controller
     public function show(Cliente $cliente): View
     {
         abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');
+        abort_unless($this->canSeeCliente($cliente, request()->user()), 403, 'No tienes acceso a este cliente.');
 
         $cliente->load('createdBy', 'urbanizacion', 'ventas.lote.manzano', 'ventas.cuotas', 'reservas.lote.manzano');
 
@@ -122,6 +138,7 @@ class ClienteController extends Controller
     public function edit(Cliente $cliente): View
     {
         abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');
+        abort_unless($this->canSeeCliente($cliente, request()->user()), 403, 'No tienes acceso a este cliente.');
 
         return view('clientes.form', compact('cliente'));
     }
@@ -129,6 +146,7 @@ class ClienteController extends Controller
     public function update(StoreClienteRequest $request, Cliente $cliente, AuditService $auditService): RedirectResponse
     {
         abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');
+        abort_unless($this->canSeeCliente($cliente, $request->user()), 403, 'No tienes acceso a este cliente.');
 
         $before = $cliente->toArray();
         $cliente->update($request->validated());
@@ -141,6 +159,7 @@ class ClienteController extends Controller
     {
         abort_unless($request->user()->hasAnyRole(['administrador', 'gerente']), 403, 'No tienes permiso para eliminar clientes.');
         abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');
+        abort_unless($this->canSeeCliente($cliente, $request->user()), 403, 'No tienes acceso a este cliente.');
 
         $before = $cliente->toArray();
         $auditService->log($cliente, 'eliminar_cliente', 'Cliente eliminado.', $before, null, $request);
@@ -165,6 +184,58 @@ class ClienteController extends Controller
         $perPage = $request->integer('per_page', 50);
 
         return in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 50;
+    }
+
+    private function applyVisibility($query, User $user): void
+    {
+        $ids = $this->visibleCreatorIds($user);
+
+        if ($ids !== null) {
+            $query->whereIn('created_by', $ids);
+        }
+    }
+
+    private function visibleCreatorIds(User $user): ?array
+    {
+        if ($user->hasAnyRole(['super administrador', 'administrador', 'gerente'])) {
+            return null;
+        }
+
+        if ($user->hasRole('supervisor')) {
+            $ids = Asesor::where('supervisor_id', $user->id)->pluck('user_id')->all();
+            $ids[] = $user->id;
+
+            return array_values(array_unique($ids));
+        }
+
+        if ($user->hasAnyRole(['asesor', 'vendedor'])) {
+            return [$user->id];
+        }
+
+        return [];
+    }
+
+    private function canSeeCliente(Cliente $cliente, User $user): bool
+    {
+        $ids = $this->visibleCreatorIds($user);
+
+        return $ids === null || in_array((int) $cliente->created_by, $ids, true);
+    }
+
+    private function canFilterAsesor(User $user): bool
+    {
+        return $user->hasAnyRole(['super administrador', 'administrador', 'gerente']);
+    }
+
+    private function asesoresForFilter(User $user)
+    {
+        if (! $this->canFilterAsesor($user)) {
+            return collect();
+        }
+
+        return User::whereHas('roles', fn ($query) => $query->whereIn('name', ['vendedor', 'asesor', 'supervisor']))
+            ->orderBy('name')
+            ->get();
     }
 
     private function sort(Request $request): array

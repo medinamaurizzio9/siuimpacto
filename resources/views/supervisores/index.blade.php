@@ -5,6 +5,12 @@
     <div class="actions">@can('exportar reportes')<a class="btn secondary" href="{{ route('supervisores.excel') }}">Exportar Excel</a><a class="btn secondary" href="{{ route('supervisores.pdf') }}">Exportar PDF</a>@endcan <a class="btn" href="{{ route('supervisores.create') }}">Crear supervisor</a></div>
 </div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
+<form class="card form" method="GET" style="margin-bottom:18px;">
+    <div class="field"><label>Buscar</label><input name="buscar" value="{{ request('buscar') }}" placeholder="Nombre o email"></div>
+    <div class="field"><label>Estado</label><select name="estado"><option value="">Todos</option><option value="activo" @selected(request('estado') === 'activo')>Activo</option><option value="inactivo" @selected(request('estado') === 'inactivo')>Inactivo</option></select></div>
+    <div class="field"><label>&nbsp;</label><button type="submit" class="btn">Filtrar</button></div>
+    <div class="field"><label>&nbsp;</label><a class="btn secondary" href="{{ route('supervisores.index') }}">Limpiar</a></div>
+</form>
 <table class="table">
     <thead><tr><th>Supervisor</th><th>CI</th><th>Celular</th><th>Email</th><th>Direccion</th><th>Estado</th><th></th></tr></thead>
     <tbody>
@@ -21,5 +27,5 @@
     @endforeach
     </tbody>
 </table>
-<div class="pagination">{{ $supervisores->links() }}</div>
+<div class="pagination">{{ $supervisores->appends(request()->query())->links() }}</div>
 @endsection

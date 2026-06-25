@@ -17,9 +17,12 @@ use Illuminate\View\View;
 
 class SupervisorController extends Controller
 {
-    public function index(UserDeletionService $deletionService): View
+    public function index(Request $request, UserDeletionService $deletionService): View
     {
-        $supervisores = SupervisorProfile::with('user')->latest()->paginate(15);
+        $query = SupervisorProfile::with('user')->latest();
+        $this->applyIndexFilters($query, $request);
+
+        $supervisores = $query->paginate(15)->appends($request->query());
         $supervisores->getCollection()->each(
             fn (SupervisorProfile $supervisor) => $supervisor->setAttribute('has_delete_history', $deletionService->hasHistoricalRecords($supervisor->user))
         );
@@ -27,6 +30,24 @@ class SupervisorController extends Controller
         return view('supervisores.index', [
             'supervisores' => $supervisores,
         ]);
+    }
+
+    private function applyIndexFilters($query, Request $request): void
+    {
+        if ($request->filled('buscar')) {
+            $term = trim((string) $request->query('buscar'));
+            $query->where(function ($builder) use ($term): void {
+                $builder->where('nombre', 'like', "%{$term}%")
+                    ->orWhere('email', 'like', "%{$term}%")
+                    ->orWhereHas('user', fn ($userQuery) => $userQuery
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%"));
+            });
+        }
+
+        if (in_array($request->query('estado'), ['activo', 'inactivo'], true)) {
+            $query->where('activo', $request->query('estado') === 'activo');
+        }
     }
 
     public function create(): View

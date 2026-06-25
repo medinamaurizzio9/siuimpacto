@@ -11,7 +11,7 @@ class ReservationVisibilityService
 {
     public function visibleUserIds(User $user): ?array
     {
-        if ($user->hasRole('administrador') || $user->hasRole('gerente')) {
+        if ($user->hasAnyRole(['super administrador', 'administrador', 'gerente'])) {
             return null;
         }
 
@@ -22,7 +22,7 @@ class ReservationVisibilityService
             return array_values(array_unique($ids));
         }
 
-        if ($user->hasRole('vendedor')) {
+        if ($user->hasAnyRole(['asesor', 'vendedor'])) {
             return [$user->id];
         }
 

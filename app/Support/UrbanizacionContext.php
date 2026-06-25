@@ -42,7 +42,7 @@ class UrbanizacionContext
 
     public static function userCanAccess(User $user, int $urbanizacionId): bool
     {
-        if ($user->hasAnyRole(['administrador', 'gerente'])) {
+        if ($user->hasAnyRole(['super administrador', 'administrador', 'gerente'])) {
             return Urbanizacion::whereKey($urbanizacionId)->where('estado', 'activa')->exists();
         }
 
