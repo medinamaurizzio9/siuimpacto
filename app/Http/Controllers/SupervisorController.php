@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Asesor;
 use App\Models\SupervisorProfile;
 use App\Models\User;
 use App\Services\AuditService;
@@ -27,8 +28,16 @@ class SupervisorController extends Controller
             fn (SupervisorProfile $supervisor) => $supervisor->setAttribute('has_delete_history', $deletionService->hasHistoricalRecords($supervisor->user))
         );
 
+        $asesorLideres = $this->asesorLeaderQuery($request)
+            ->get()
+            ->each(fn (Asesor $asesor) => $asesor->setAttribute(
+                'has_delete_history',
+                $asesor->user ? $deletionService->hasHistoricalRecords($asesor->user) : false
+            ));
+
         return view('supervisores.index', [
             'supervisores' => $supervisores,
+            'asesorLideres' => $asesorLideres,
         ]);
     }
 
@@ -48,6 +57,38 @@ class SupervisorController extends Controller
         if (in_array($request->query('estado'), ['activo', 'inactivo'], true)) {
             $query->where('activo', $request->query('estado') === 'activo');
         }
+    }
+
+    private function asesorLeaderQuery(Request $request)
+    {
+        $supervisorUserIds = SupervisorProfile::query()
+            ->whereNotNull('user_id')
+            ->pluck('user_id');
+
+        $query = Asesor::with('user')
+            ->where('is_team_leader', true)
+            ->whereNotNull('user_id')
+            ->whereNotIn('user_id', $supervisorUserIds)
+            ->latest();
+
+        if ($request->filled('buscar')) {
+            $term = trim((string) $request->query('buscar'));
+            $query->where(function ($builder) use ($term): void {
+                $builder->where('nombre', 'like', "%{$term}%")
+                    ->orWhere('apellido', 'like', "%{$term}%")
+                    ->orWhere('ci', 'like', "%{$term}%")
+                    ->orWhere('email', 'like', "%{$term}%")
+                    ->orWhereHas('user', fn ($userQuery) => $userQuery
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%"));
+            });
+        }
+
+        if (in_array($request->query('estado'), ['activo', 'inactivo'], true)) {
+            $query->where('activo', $request->query('estado') === 'activo');
+        }
+
+        return $query;
     }
 
     public function create(): View

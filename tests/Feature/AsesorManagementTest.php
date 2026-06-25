@@ -206,6 +206,22 @@ class AsesorManagementTest extends TestCase
             ->assertSee($lider->name);
     }
 
+    public function test_asesor_lider_aparece_en_listado_de_supervisores(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+        $lider = $this->crearAsesorUsuario('lider.listado@test.local', 'LIDER-LIST', null, true, $urbanizacion);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('supervisores.index'))
+            ->assertOk()
+            ->assertSee($lider->email)
+            ->assertSee('Asesor lider');
+    }
+
     public function test_al_desmarcar_lider_pierde_rol_supervisor_si_fue_asignado_por_liderazgo(): void
     {
         $this->seed();
@@ -241,6 +257,48 @@ class AsesorManagementTest extends TestCase
         $this->assertFalse($asesor->team_leader_role_assigned);
         $this->assertFalse($asesor->user->fresh()->hasRole('supervisor'));
         $this->assertTrue($asesor->user->fresh()->hasRole('vendedor'));
+    }
+
+    public function test_al_desmarcar_asesor_lider_desaparece_del_listado_de_supervisores_si_no_era_original(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'lider.ocultar@test.local',
+                'ci' => 'LIDER-OCU',
+                'is_team_leader' => '1',
+                'urbanizaciones' => [$urbanizacion->id],
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'LIDER-OCU')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('supervisores.index'))
+            ->assertOk()
+            ->assertSee('lider.ocultar@test.local');
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('asesores.update', $asesor), $this->payload([
+                'email' => 'lider.ocultar@test.local',
+                'ci' => 'LIDER-OCU',
+                'urbanizaciones' => [$urbanizacion->id],
+                'activo' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('supervisores.index'))
+            ->assertOk()
+            ->assertDontSee('lider.ocultar@test.local');
     }
 
     public function test_al_desmarcar_lider_no_pierde_rol_supervisor_original(): void
@@ -279,6 +337,46 @@ class AsesorManagementTest extends TestCase
 
         $this->assertFalse($asesor->fresh()->is_team_leader);
         $this->assertTrue($user->fresh()->hasRole('supervisor'));
+    }
+
+    public function test_asesor_lider_no_duplica_usuario_en_listado_de_supervisores(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+        $user = User::factory()->create(['name' => 'Supervisor Duplicado', 'email' => 'supervisor.duplicado@test.local']);
+        $user->assignRole(['vendedor', 'supervisor']);
+        $user->urbanizacionesAsignadas()->syncWithoutDetaching([$urbanizacion->id => ['activo' => true]]);
+
+        SupervisorProfile::create([
+            'user_id' => $user->id,
+            'nombre' => 'Supervisor Duplicado',
+            'ci' => 'SUP-DUP',
+            'celular' => '70001122',
+            'email' => $user->email,
+            'direccion' => 'Oficina central',
+            'activo' => true,
+        ]);
+
+        Asesor::create([
+            'user_id' => $user->id,
+            'nombre' => 'Supervisor',
+            'apellido' => 'Duplicado',
+            'ci' => 'ASE-DUP',
+            'email' => $user->email,
+            'activo' => true,
+            'is_team_leader' => true,
+            'team_leader_role_assigned' => false,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->get(route('supervisores.index'))
+            ->assertOk()
+            ->assertSee('Supervisor Duplicado');
+
+        $this->assertSame(1, substr_count($response->getContent(), 'supervisor.duplicado@test.local'));
     }
 
     public function test_admin_ve_boton_importar_y_vendedor_no_lo_ve(): void
