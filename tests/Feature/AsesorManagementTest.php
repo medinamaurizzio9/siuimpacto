@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Venta;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -122,6 +123,200 @@ class AsesorManagementTest extends TestCase
         $asesor->user->refresh();
         $this->assertTrue($asesor->user->must_change_password);
         $this->assertTrue(Hash::check($asesor->ci, $asesor->user->password));
+    }
+
+    public function test_actualizar_asesor_sin_cambiar_urbanizaciones_no_duplica_pivot(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'asesor.update.same@test.local',
+                'ci' => 'ASE-UPD-SAME',
+                'urbanizaciones' => [$urbanizacion->id],
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'ASE-UPD-SAME')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('asesores.update', $asesor), $this->payload([
+                'email' => 'asesor.update.same@test.local',
+                'ci' => 'ASE-UPD-SAME',
+                'urbanizaciones' => [$urbanizacion->id],
+                'activo' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $this->assertSame(1, DB::table('urbanizacion_user')
+            ->where('user_id', $asesor->user_id)
+            ->where('urbanizacion_id', $urbanizacion->id)
+            ->count());
+    }
+
+    public function test_actualizar_asesor_cambiando_urbanizaciones_sin_duplicar_pivot(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacionInicial = Urbanizacion::firstOrFail();
+        $urbanizacionNueva = Urbanizacion::whereKeyNot($urbanizacionInicial->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacionInicial->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'asesor.update.change@test.local',
+                'ci' => 'ASE-UPD-CHG',
+                'urbanizaciones' => [$urbanizacionInicial->id],
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'ASE-UPD-CHG')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacionInicial->id])
+            ->put(route('asesores.update', $asesor), $this->payload([
+                'email' => 'asesor.update.change@test.local',
+                'ci' => 'ASE-UPD-CHG',
+                'urbanizaciones' => [$urbanizacionNueva->id],
+                'activo' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $this->assertDatabaseHas('urbanizacion_user', [
+            'user_id' => $asesor->user_id,
+            'urbanizacion_id' => $urbanizacionNueva->id,
+            'activo' => true,
+        ]);
+        $this->assertDatabaseMissing('urbanizacion_user', [
+            'user_id' => $asesor->user_id,
+            'urbanizacion_id' => $urbanizacionInicial->id,
+        ]);
+    }
+
+    public function test_actualizar_asesor_marcando_lider_no_duplica_urbanizaciones(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'asesor.update.leader@test.local',
+                'ci' => 'ASE-UPD-LID',
+                'urbanizaciones' => [$urbanizacion->id],
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'ASE-UPD-LID')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('asesores.update', $asesor), $this->payload([
+                'email' => 'asesor.update.leader@test.local',
+                'ci' => 'ASE-UPD-LID',
+                'urbanizaciones' => [$urbanizacion->id],
+                'is_team_leader' => '1',
+                'activo' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor->refresh();
+        $this->assertTrue($asesor->is_team_leader);
+        $this->assertTrue($asesor->user->fresh()->hasRole('supervisor'));
+        $this->assertSame(1, DB::table('urbanizacion_user')
+            ->where('user_id', $asesor->user_id)
+            ->where('urbanizacion_id', $urbanizacion->id)
+            ->count());
+    }
+
+    public function test_actualizar_asesor_desmarcando_lider_no_duplica_urbanizaciones(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'asesor.update.unleader@test.local',
+                'ci' => 'ASE-UPD-UNL',
+                'urbanizaciones' => [$urbanizacion->id],
+                'is_team_leader' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'ASE-UPD-UNL')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('asesores.update', $asesor), $this->payload([
+                'email' => 'asesor.update.unleader@test.local',
+                'ci' => 'ASE-UPD-UNL',
+                'urbanizaciones' => [$urbanizacion->id],
+                'activo' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor->refresh();
+        $this->assertFalse($asesor->is_team_leader);
+        $this->assertFalse($asesor->user->fresh()->hasRole('supervisor'));
+        $this->assertSame(1, DB::table('urbanizacion_user')
+            ->where('user_id', $asesor->user_id)
+            ->where('urbanizacion_id', $urbanizacion->id)
+            ->count());
+    }
+
+    public function test_actualizar_asesor_reactiva_relacion_inactiva_sin_duplicate_entry(): void
+    {
+        $this->seed();
+
+        $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
+        $urbanizacion = Urbanizacion::firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'asesor.update.inactive@test.local',
+                'ci' => 'ASE-UPD-INA',
+                'urbanizaciones' => [$urbanizacion->id],
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $asesor = Asesor::where('ci', 'ASE-UPD-INA')->firstOrFail();
+
+        DB::table('urbanizacion_user')
+            ->where('user_id', $asesor->user_id)
+            ->where('urbanizacion_id', $urbanizacion->id)
+            ->update(['activo' => false]);
+
+        $this->actingAs($admin)
+            ->withSession(['urbanizacion_id' => $urbanizacion->id])
+            ->put(route('asesores.update', $asesor), $this->payload([
+                'email' => 'asesor.update.inactive@test.local',
+                'ci' => 'ASE-UPD-INA',
+                'urbanizaciones' => [$urbanizacion->id],
+                'activo' => '1',
+            ]))
+            ->assertRedirect(route('asesores.index'));
+
+        $this->assertDatabaseHas('urbanizacion_user', [
+            'user_id' => $asesor->user_id,
+            'urbanizacion_id' => $urbanizacion->id,
+            'activo' => true,
+        ]);
+        $this->assertSame(1, DB::table('urbanizacion_user')
+            ->where('user_id', $asesor->user_id)
+            ->where('urbanizacion_id', $urbanizacion->id)
+            ->count());
     }
 
     public function test_admin_puede_marcar_asesor_como_lider_de_equipo(): void
@@ -409,7 +604,12 @@ class AsesorManagementTest extends TestCase
 
         $this->actingAs($admin)
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
-            ->post(route('asesores.store'), $this->payload(['email' => 'asesor.eliminar@test.local', 'ci' => 'ASE-DEL']))
+            ->post(route('asesores.store'), $this->payload([
+                'email' => 'asesor.eliminar@test.local',
+                'ci' => 'ASE-DEL',
+                'grupo_comercial' => null,
+                'grupo_comercial_id' => null,
+            ]))
             ->assertRedirect(route('asesores.index'));
 
         $asesor = Asesor::where('ci', 'ASE-DEL')->firstOrFail();
@@ -430,7 +630,7 @@ class AsesorManagementTest extends TestCase
         ]);
     }
 
-    public function test_administrador_desactiva_asesor_con_historial(): void
+    public function test_administrador_no_elimina_asesor_con_relaciones_y_muestra_detalle(): void
     {
         $this->seed();
         $admin = User::where('email', 'admin@impacto.test')->firstOrFail();
@@ -457,15 +657,11 @@ class AsesorManagementTest extends TestCase
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
             ->delete(route('asesores.destroy', $asesor))
             ->assertRedirect()
-            ->assertSessionHas('status', 'El usuario tiene registros asociados, por seguridad fue desactivado.');
+            ->assertSessionHasErrors('delete');
 
-        $this->assertDatabaseHas('users', ['id' => $asesor->user_id, 'estado' => 'inactivo']);
-        $this->assertDatabaseHas('asesores', ['id' => $asesor->id, 'activo' => false]);
-        $this->assertDatabaseHas('audit_logs', [
-            'modelo' => 'User',
-            'modelo_id' => $asesor->user_id,
-            'accion' => 'desactivar_asesor',
-        ]);
+        $this->assertDatabaseHas('users', ['id' => $asesor->user_id]);
+        $this->assertDatabaseHas('asesores', ['id' => $asesor->id, 'activo' => true]);
+        $this->assertStringContainsString('ventas asociadas', session('errors')->first('delete'));
     }
 
     public function test_usuario_no_admin_recibe_403_al_eliminar_asesor(): void

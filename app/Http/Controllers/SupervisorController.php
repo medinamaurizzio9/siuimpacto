@@ -6,6 +6,7 @@ use App\Models\Asesor;
 use App\Models\SupervisorProfile;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\DeletionDependencyService;
 use App\Services\UserDeletionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
@@ -141,8 +142,15 @@ class SupervisorController extends Controller
         return redirect()->route('supervisores.index')->with('status', 'Supervisor actualizado.');
     }
 
-    public function destroy(Request $request, SupervisorProfile $supervisor, AuditService $auditService, UserDeletionService $deletionService): RedirectResponse
+    public function destroy(Request $request, SupervisorProfile $supervisor, AuditService $auditService, UserDeletionService $deletionService, DeletionDependencyService $dependencyService): RedirectResponse
     {
+        $dependencies = $dependencyService->forSupervisor($supervisor);
+        if ($dependencyService->hasDependencies($dependencies)) {
+            return back()->withErrors([
+                'delete' => $dependencyService->message('el supervisor', $dependencies),
+            ]);
+        }
+
         $result = $deletionService->deleteOrDeactivate($supervisor->user, $request, $auditService, 'eliminar_supervisor', 'desactivar_supervisor');
 
         return back()->with('status', $result === 'deleted'

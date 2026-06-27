@@ -64,7 +64,7 @@ class UrbanizacionAssignmentController extends Controller
             ->mapWithKeys(fn ($id) => [(int) $id => ['activo' => true]])
             ->all();
 
-        $user->urbanizacionesAsignadas()->sync($sync);
+        $user->urbanizaciones()->sync($sync);
 
         return back()->with('status', 'Asignaciones actualizadas.');
     }

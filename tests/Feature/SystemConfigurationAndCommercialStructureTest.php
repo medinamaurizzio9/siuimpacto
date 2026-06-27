@@ -86,7 +86,7 @@ class SystemConfigurationAndCommercialStructureTest extends TestCase
         ]);
     }
 
-    public function test_administrador_desactiva_supervisor_con_equipo_asociado(): void
+    public function test_administrador_no_elimina_supervisor_con_equipo_y_muestra_detalle(): void
     {
         [$admin, $urbanizacion] = $this->adminContext();
         $profile = SupervisorProfile::whereHas('user', fn ($query) => $query->where('email', 'supervisor@impacto.test'))->firstOrFail();
@@ -95,15 +95,11 @@ class SystemConfigurationAndCommercialStructureTest extends TestCase
             ->withSession(['urbanizacion_id' => $urbanizacion->id])
             ->delete(route('supervisores.destroy', $profile))
             ->assertRedirect()
-            ->assertSessionHas('status', 'El usuario tiene registros asociados, por seguridad fue desactivado.');
+            ->assertSessionHasErrors('delete');
 
-        $this->assertDatabaseHas('users', ['id' => $profile->user_id, 'estado' => 'inactivo']);
-        $this->assertDatabaseHas('supervisor_profiles', ['id' => $profile->id, 'activo' => false]);
-        $this->assertDatabaseHas('audit_logs', [
-            'modelo' => 'User',
-            'modelo_id' => $profile->user_id,
-            'accion' => 'desactivar_supervisor',
-        ]);
+        $this->assertDatabaseHas('users', ['id' => $profile->user_id]);
+        $this->assertDatabaseHas('supervisor_profiles', ['id' => $profile->id, 'activo' => true]);
+        $this->assertStringContainsString('asesores asignados', session('errors')->first('delete'));
     }
 
     public function test_usuario_no_admin_recibe_403_al_eliminar_supervisor(): void

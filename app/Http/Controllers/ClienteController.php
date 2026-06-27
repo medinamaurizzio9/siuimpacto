@@ -7,6 +7,7 @@ use App\Models\Asesor;
 use App\Models\Cliente;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\DeletionDependencyService;
 use App\Support\UrbanizacionContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -155,11 +156,18 @@ class ClienteController extends Controller
         return redirect()->route('clientes.index')->with('status', 'Cliente actualizado.');
     }
 
-    public function destroy(\Illuminate\Http\Request $request, Cliente $cliente, AuditService $auditService): RedirectResponse
+    public function destroy(\Illuminate\Http\Request $request, Cliente $cliente, AuditService $auditService, DeletionDependencyService $dependencyService): RedirectResponse
     {
         abort_unless($request->user()->hasAnyRole(['administrador', 'gerente']), 403, 'No tienes permiso para eliminar clientes.');
         abort_unless(UrbanizacionContext::clienteBelongsToCurrent($cliente), 403, 'No tienes acceso a este cliente.');
         abort_unless($this->canSeeCliente($cliente, $request->user()), 403, 'No tienes acceso a este cliente.');
+
+        $dependencies = $dependencyService->forCliente($cliente);
+        if ($dependencyService->hasDependencies($dependencies)) {
+            return back()->withErrors([
+                'delete' => $dependencyService->message('el cliente', $dependencies),
+            ]);
+        }
 
         $before = $cliente->toArray();
         $auditService->log($cliente, 'eliminar_cliente', 'Cliente eliminado.', $before, null, $request);

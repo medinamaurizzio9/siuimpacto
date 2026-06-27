@@ -49,10 +49,15 @@ class User extends Authenticatable
 
     public function urbanizacionesAsignadas(): BelongsToMany
     {
+        return $this->urbanizaciones()
+            ->wherePivot('activo', true);
+    }
+
+    public function urbanizaciones(): BelongsToMany
+    {
         return $this->belongsToMany(Urbanizacion::class, 'urbanizacion_user')
             ->withPivot('activo')
-            ->withTimestamps()
-            ->wherePivot('activo', true);
+            ->withTimestamps();
     }
 
     public function asesor(): HasOne

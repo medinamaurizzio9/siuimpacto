@@ -8,6 +8,7 @@ use App\Models\SupervisorProfile;
 use App\Models\Urbanizacion;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\DeletionDependencyService;
 use App\Services\UserDeletionService;
 use App\Services\UserSpreadsheetService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -74,7 +75,7 @@ class AsesorController extends Controller
                 'is_team_leader' => $request->boolean('is_team_leader'),
             ]);
 
-            $user->urbanizacionesAsignadas()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
+            $user->urbanizaciones()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
             $this->syncTeamLeaderRole($asesor, $request->boolean('is_team_leader'));
 
             $auditService->log($asesor, 'crear_asesor', 'Asesor creado con usuario de sistema.', null, $asesor->toArray(), $request);
@@ -118,7 +119,7 @@ class AsesorController extends Controller
                 'name' => trim($data['nombre'].' '.$data['apellido']),
                 'email' => $data['email'],
             ]);
-            $asesor->user->urbanizacionesAsignadas()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
+            $asesor->user->urbanizaciones()->sync($this->syncPayload($data['urbanizaciones'] ?? []));
             $this->syncTeamLeaderRole($asesor, $request->boolean('is_team_leader'));
 
             $auditService->log($asesor, 'editar_asesor', 'Asesor actualizado.', $before, $asesor->fresh()->toArray(), $request);
@@ -128,8 +129,15 @@ class AsesorController extends Controller
         return redirect()->route('asesores.index')->with('status', 'Asesor actualizado.');
     }
 
-    public function destroy(Request $request, Asesor $asesor, AuditService $auditService, UserDeletionService $deletionService): RedirectResponse
+    public function destroy(Request $request, Asesor $asesor, AuditService $auditService, UserDeletionService $deletionService, DeletionDependencyService $dependencyService): RedirectResponse
     {
+        $dependencies = $dependencyService->forAsesor($asesor);
+        if ($dependencyService->hasDependencies($dependencies)) {
+            return back()->withErrors([
+                'delete' => $dependencyService->message('el asesor', $dependencies),
+            ]);
+        }
+
         $result = $deletionService->deleteOrDeactivate($asesor->user, $request, $auditService, 'eliminar_asesor', 'desactivar_asesor');
 
         return back()->with('status', $result === 'deleted'

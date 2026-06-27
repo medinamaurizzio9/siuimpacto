@@ -12,6 +12,15 @@
     </div>
 </div>
 @if (session('status')) <div class="status">{{ session('status') }}</div> @endif
+@if ($errors->any())
+    <div class="errors">
+        @foreach($errors->all() as $error)
+            @foreach(explode("\n", $error) as $line)
+                <div>{{ $line }}</div>
+            @endforeach
+        @endforeach
+    </div>
+@endif
 
 <form class="card form" method="GET" style="margin-bottom:18px;">
     <div class="field"><label>Buscar</label><input name="buscar" value="{{ request('buscar') }}" placeholder="Nombre, CI o email"></div>

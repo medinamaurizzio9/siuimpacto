@@ -17,6 +17,16 @@
     <div class="status">{{ session('status') }}</div>
 @endif
 
+@if ($errors->any())
+    <div class="errors">
+        @foreach($errors->all() as $error)
+            @foreach(explode("\n", $error) as $line)
+                <div>{{ $line }}</div>
+            @endforeach
+        @endforeach
+    </div>
+@endif
+
 <form method="GET" action="{{ route('clientes.index') }}" class="card filter-form list-filters">
     <div class="field">
         <label for="q">Buscar cliente</label>
