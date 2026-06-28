@@ -133,7 +133,7 @@
             <div class="map-shell">
                 <button class="btn secondary map-tools-toggle" type="button" id="map-tools-toggle" aria-expanded="false" aria-controls="map-tools-panel">Mapa</button>
                 <button class="btn map-location-quick" type="button" id="quick-my-location" aria-label="Activar mi ubicacion">GPS</button>
-                <div class="map-zoom-controls" id="map-tools-panel">
+                <div class="map-zoom-controls" id="map-tools-panel" aria-hidden="true">
                     <button class="btn secondary" type="button" data-zoom-in title="Acercar" aria-label="Acercar">Zoom +</button>
                     <button class="btn secondary" type="button" data-zoom-out title="Alejar" aria-label="Alejar">Zoom -</button>
                     <button class="btn secondary" type="button" data-zoom-reset title="Restablecer vista" aria-label="Restablecer vista">Restablecer</button>
@@ -203,8 +203,73 @@
                             <a class="btn secondary" href="" data-modal-link="reservar" hidden>Reservar lote</a>
                             <a class="btn secondary" href="" data-modal-link="vender" hidden>Vender lote</a>
                             <a class="btn secondary" href="" data-modal-link="editar" hidden>Editar lote</a>
+                            <button type="button" class="btn calculator-btn" data-modal-calculator hidden>Calculadora</button>
                             <button type="button" id="lotModalClose" class="btn">Cerrar</button>
                         </div>
+                    </div>
+                </div>
+
+                <div id="commercialCalculatorOverlay" class="modal-overlay hidden"></div>
+                <div id="commercialCalculatorModal" class="commercial-calculator-modal hidden" role="dialog" aria-modal="true" aria-labelledby="commercialCalculatorTitle" aria-hidden="true">
+                    <div class="commercial-calculator-dialog">
+                        <div class="calculator-header">
+                            <div>
+                                <h2 id="commercialCalculatorTitle">Calculadora comercial</h2>
+                                <p class="muted"><span data-calc-lote></span></p>
+                            </div>
+                            <button type="button" class="btn secondary" id="commercialCalculatorClose">Cerrar</button>
+                        </div>
+
+                        <div class="calculator-tabs" role="tablist" aria-label="Tipo de calculo">
+                            <button type="button" class="btn calculator-tab active" data-calculator-tab="credito">Credito</button>
+                            <button type="button" class="btn calculator-tab semi" data-calculator-tab="semi">Semi contado</button>
+                        </div>
+
+                        <div class="calculator-panel" data-calculator-panel="credito">
+                            <div class="calculator-fields">
+                                <div class="field">
+                                    <label>Precio real USD</label>
+                                    <input data-calc-credit-price-usd readonly>
+                                </div>
+                                <div class="field">
+                                    <label>Precio real Bs</label>
+                                    <input data-calc-credit-price-bs readonly>
+                                </div>
+                                <div class="field">
+                                    <label>Inicial USD</label>
+                                    <input type="number" min="0" step="0.01" data-calc-initial-usd>
+                                </div>
+                                <div class="field">
+                                    <label>Inicial Bs</label>
+                                    <input data-calc-initial-bs readonly>
+                                </div>
+                                <div class="field">
+                                    <label>Plazo</label>
+                                    <select data-calc-plazo required></select>
+                                </div>
+                            </div>
+                            <p class="calculator-alert" data-calc-minimum></p>
+                            <p class="calculator-error" data-calc-credit-error hidden></p>
+                            <div class="calculator-results teal" data-calc-credit-results></div>
+                        </div>
+
+                        <div class="calculator-panel hidden" data-calculator-panel="semi">
+                            <div class="calculator-fields">
+                                <div class="field">
+                                    <label>Precio real USD</label>
+                                    <input data-calc-semi-price-usd readonly>
+                                </div>
+                                <div class="field">
+                                    <label>Precio real Bs</label>
+                                    <input data-calc-semi-price-bs readonly>
+                                </div>
+                            </div>
+                            <p class="muted" data-calc-promo-status></p>
+                            <p class="calculator-error" data-calc-semi-error hidden></p>
+                            <div class="calculator-results gold" data-calc-semi-results></div>
+                        </div>
+
+                        <p class="calculator-note">Simulacion referencial. Los valores finales deben ser confirmados por administracion.</p>
                     </div>
                 </div>
             </div>
@@ -216,6 +281,8 @@
 
 <script src="{{ asset('js/map-zoom.js') }}"></script>
 <script>
+window.commercialConfig = @json($commercialConfig ?? []);
+
 document.addEventListener('DOMContentLoaded', () => {
     const map = document.getElementById('plan-map');
     const layer = document.getElementById('plan-map-layer');
@@ -238,6 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const quickMyLocation = document.getElementById('quick-my-location');
     const mapToolsToggle = document.getElementById('map-tools-toggle');
     const mapToolsPanel = document.getElementById('map-tools-panel');
+    const calculatorModal = document.getElementById('commercialCalculatorModal');
+    const calculatorOverlay = document.getElementById('commercialCalculatorOverlay');
+    const calculatorClose = document.getElementById('commercialCalculatorClose');
+    let calculatorLote = null;
     const gpsLocationStatus = document.getElementById('gps-location-status');
     const currentLocationMarker = document.getElementById('current-location-marker');
     const csrf = '{{ csrf_token() }}';
@@ -259,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay: document.getElementById('lotModalOverlay'),
         closeButton: document.getElementById('lotModalClose'),
         endpointBase: '{{ url('/mapa/lote') }}',
+        onCalculator: openCalculator,
     });
 
     toggleEdit?.addEventListener('click', () => {
@@ -286,11 +358,196 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleGpsPoints.textContent = visible ? 'Ocultar GPS' : 'Puntos GPS';
     });
 
-    mapToolsToggle?.addEventListener('click', () => {
-        const open = !mapToolsPanel.classList.contains('open');
+    function setMapToolsOpen(open) {
+        if (!mapToolsPanel || !mapToolsToggle) return;
         mapToolsPanel.classList.toggle('open', open);
         mapToolsToggle.classList.toggle('active', open);
         mapToolsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        mapToolsPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    mapToolsToggle?.addEventListener('click', () => {
+        setMapToolsOpen(!mapToolsPanel?.classList.contains('open'));
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!mapToolsPanel?.classList.contains('open')) return;
+        if (event.target.closest('#map-tools-panel, #map-tools-toggle')) return;
+        setMapToolsOpen(false);
+    });
+
+    function moneyUsd(value) {
+        return `$us ${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function moneyBs(value) {
+        return `Bs ${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function calcConfig() {
+        return window.commercialConfig || {};
+    }
+
+    function writeCalc(selector, value) {
+        const element = calculatorModal?.querySelector(selector);
+        if (element) element.value = value;
+    }
+
+    function resultRow(label, usd, bs) {
+        return `<div><span>${label}</span><strong>${moneyUsd(usd)} / ${moneyBs(bs)}</strong></div>`;
+    }
+
+    function setCalculatorTab(tab) {
+        calculatorModal?.querySelectorAll('[data-calculator-tab]').forEach((button) => {
+            const active = button.dataset.calculatorTab === tab;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        calculatorModal?.querySelectorAll('[data-calculator-panel]').forEach((panelElement) => {
+            panelElement.classList.toggle('hidden', panelElement.dataset.calculatorPanel !== tab);
+        });
+    }
+
+    function renderCreditCalculator() {
+        if (!calculatorLote || !window.ImpactoCommercialCalculator) return;
+
+        const config = calcConfig();
+        const priceUsd = Number(calculatorLote.precio_real_usd || 0);
+        const tipoCambio = Number(config.tipoCambio || calculatorLote.tipo_cambio_usd_bs || 0);
+        const initialInput = calculatorModal?.querySelector('[data-calc-initial-usd]');
+        const plazoSelect = calculatorModal?.querySelector('[data-calc-plazo]');
+        const plazos = Array.isArray(config.plazos) ? config.plazos : [];
+
+        if (plazoSelect && plazoSelect.options.length === 0) {
+            plazoSelect.innerHTML = plazos.map((plazo) => `<option value="${plazo}">${plazo} meses</option>`).join('');
+        }
+
+        if (initialInput && initialInput.value === '') {
+            initialInput.value = Number(config.inicialMinimaUsd || 0).toFixed(2);
+        }
+
+        const result = window.ImpactoCommercialCalculator.calculateCredit({
+            priceUsd,
+            initialUsd: Number(initialInput?.value || 0),
+            plazo: Number(plazoSelect?.value || plazos[0] || 0),
+            tipoCambio,
+            inicialMinimaUsd: Number(config.inicialMinimaUsd || 0),
+            plazos,
+        });
+
+        writeCalc('[data-calc-credit-price-usd]', moneyUsd(result.precioUsd));
+        writeCalc('[data-calc-credit-price-bs]', moneyBs(result.precioBs));
+        writeCalc('[data-calc-initial-bs]', moneyBs(result.inicialBs));
+
+        const minimum = calculatorModal?.querySelector('[data-calc-minimum]');
+        if (minimum) {
+            minimum.textContent = `La inicial minima para esta urbanizacion es ${moneyUsd(result.inicialMinimaUsd)} / ${moneyBs(result.inicialMinimaBs)}.`;
+        }
+
+        const error = calculatorModal?.querySelector('[data-calc-credit-error]');
+        if (error) {
+            error.hidden = result.errors.length === 0;
+            error.textContent = result.errors.join(' ');
+        }
+
+        const results = calculatorModal?.querySelector('[data-calc-credit-results]');
+        if (results) {
+            results.innerHTML = [
+                resultRow('Precio real', result.precioUsd, result.precioBs),
+                resultRow('Inicial', result.inicialUsd, result.inicialBs),
+                resultRow('Saldo a financiar', result.saldoUsd, result.saldoBs),
+                `<div><span>Plazo</span><strong>${result.plazo || '--'} meses</strong></div>`,
+                resultRow('Cuota mensual', result.cuotaUsd, result.cuotaBs),
+            ].join('');
+        }
+    }
+
+    function renderSemiCalculator() {
+        if (!calculatorLote || !window.ImpactoCommercialCalculator) return;
+
+        const config = calcConfig();
+        const priceUsd = Number(calculatorLote.precio_real_usd || 0);
+        const tipoCambio = Number(config.tipoCambio || calculatorLote.tipo_cambio_usd_bs || 0);
+        const promo = config.descuentoPromo || {};
+        const result = window.ImpactoCommercialCalculator.calculateSemiContado({
+            priceUsd,
+            tipoCambio,
+            descuentoContado: config.descuentoContado || {},
+            descuentoPromo: promo,
+        });
+
+        writeCalc('[data-calc-semi-price-usd]', moneyUsd(result.precioUsd));
+        writeCalc('[data-calc-semi-price-bs]', moneyBs(result.precioBs));
+
+        const promoStatus = calculatorModal?.querySelector('[data-calc-promo-status]');
+        if (promoStatus) {
+            promoStatus.textContent = promo.activo
+                ? (promo.nombre || 'Promocion activa')
+                : 'Sin promocion activa';
+        }
+
+        const error = calculatorModal?.querySelector('[data-calc-semi-error]');
+        if (error) {
+            error.hidden = result.errors.length === 0;
+            error.textContent = result.errors.join(' ');
+        }
+
+        const results = calculatorModal?.querySelector('[data-calc-semi-results]');
+        if (results) {
+            results.innerHTML = [
+                resultRow('Precio real', result.precioUsd, result.precioBs),
+                resultRow('Descuento contado', result.descuentoContadoUsd, result.descuentoContadoBs),
+                resultRow('Descuento promo', result.descuentoPromoUsd, result.descuentoPromoBs),
+                resultRow('Total descuentos', result.totalDescuentoUsd, result.totalDescuentoBs),
+                resultRow('Precio final semi contado', result.precioFinalUsd, result.precioFinalBs),
+            ].join('');
+        }
+    }
+
+    function renderCalculator() {
+        renderCreditCalculator();
+        renderSemiCalculator();
+    }
+
+    function openCalculator(loteData) {
+        calculatorLote = loteData;
+        const label = calculatorModal?.querySelector('[data-calc-lote]');
+        if (label) {
+            label.textContent = `${loteData.urbanizacion || ''} / ${loteData.manzano || ''}-${loteData.lote || ''}`;
+        }
+
+        const plazoSelect = calculatorModal?.querySelector('[data-calc-plazo]');
+        if (plazoSelect) plazoSelect.innerHTML = '';
+        const initialInput = calculatorModal?.querySelector('[data-calc-initial-usd]');
+        if (initialInput) initialInput.value = '';
+
+        setCalculatorTab('credito');
+        calculatorOverlay?.classList.remove('hidden');
+        calculatorModal?.classList.remove('hidden');
+        calculatorModal?.setAttribute('aria-hidden', 'false');
+        calculatorOverlay?.setAttribute('aria-hidden', 'false');
+        renderCalculator();
+    }
+
+    function closeCalculator() {
+        calculatorModal?.classList.add('hidden');
+        calculatorOverlay?.classList.add('hidden');
+        calculatorModal?.setAttribute('aria-hidden', 'true');
+        calculatorOverlay?.setAttribute('aria-hidden', 'true');
+        calculatorLote = null;
+    }
+
+    calculatorModal?.querySelectorAll('[data-calculator-tab]').forEach((button) => {
+        button.addEventListener('click', () => setCalculatorTab(button.dataset.calculatorTab));
+    });
+    calculatorModal?.querySelector('[data-calc-initial-usd]')?.addEventListener('input', renderCreditCalculator);
+    calculatorModal?.querySelector('[data-calc-plazo]')?.addEventListener('change', renderCreditCalculator);
+    calculatorClose?.addEventListener('click', closeCalculator);
+    calculatorOverlay?.addEventListener('click', closeCalculator);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && calculatorModal && !calculatorModal.classList.contains('hidden')) {
+            closeCalculator();
+        }
     });
 
     function setGpsStatus(text, level = '') {

@@ -31,6 +31,63 @@
         <label>Valor incremento credito</label>
         <input type="number" min="0" step="0.01" name="incremento_credito_valor" value="{{ old('incremento_credito_valor', $priceSettings['incremento_credito_valor']) }}" required>
     </div>
+    <div class="field full">
+        <h2 class="section-title">Calculadora credito</h2>
+    </div>
+    <div class="field">
+        <label>Inicial minima USD</label>
+        <input type="number" min="0" step="0.01" name="inicial_minima_usd" value="{{ old('inicial_minima_usd', $priceSettings['inicial_minima_usd']) }}" required>
+    </div>
+    <input type="hidden" name="plazo_12_habilitado" value="0">
+    <label class="check-row"><input type="checkbox" name="plazo_12_habilitado" value="1" @checked(old('plazo_12_habilitado', $priceSettings['plazo_12_habilitado']))> Habilitar plazo 12 meses</label>
+    <input type="hidden" name="plazo_24_habilitado" value="0">
+    <label class="check-row"><input type="checkbox" name="plazo_24_habilitado" value="1" @checked(old('plazo_24_habilitado', $priceSettings['plazo_24_habilitado']))> Habilitar plazo 24 meses</label>
+    <input type="hidden" name="plazo_36_habilitado" value="0">
+    <label class="check-row"><input type="checkbox" name="plazo_36_habilitado" value="1" @checked(old('plazo_36_habilitado', $priceSettings['plazo_36_habilitado']))> Habilitar plazo 36 meses</label>
+
+    <div class="field full">
+        <h2 class="section-title">Calculadora semi contado</h2>
+    </div>
+    <input type="hidden" name="descuento_contado_activo" value="0">
+    <label class="check-row"><input type="checkbox" name="descuento_contado_activo" value="1" @checked(old('descuento_contado_activo', $priceSettings['descuento_contado_activo']))> Activar descuento por compra al contado</label>
+    <div class="field">
+        <label>Tipo descuento contado</label>
+        <select name="descuento_contado_tipo" required>
+            @foreach(['monto' => 'Monto fijo', 'porcentaje' => 'Porcentaje'] as $value => $label)
+                <option value="{{ $value }}" @selected(old('descuento_contado_tipo', $priceSettings['descuento_contado_tipo']) === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div class="field">
+        <label>Valor descuento contado</label>
+        <input type="number" min="0" step="0.01" name="descuento_contado_valor" value="{{ old('descuento_contado_valor', $priceSettings['descuento_contado_valor']) }}" required>
+    </div>
+
+    <div class="field full">
+        <h2 class="section-title">Promocion adicional</h2>
+    </div>
+    <input type="hidden" name="descuento_promo_activo" value="0">
+    <label class="check-row"><input type="checkbox" name="descuento_promo_activo" value="1" @checked(old('descuento_promo_activo', $priceSettings['descuento_promo_activo']))> Activar promocion</label>
+    <div class="field">
+        <label>Tipo descuento promo</label>
+        <select name="descuento_promo_tipo" required>
+            @foreach(['monto' => 'Monto fijo', 'porcentaje' => 'Porcentaje'] as $value => $label)
+                <option value="{{ $value }}" @selected(old('descuento_promo_tipo', $priceSettings['descuento_promo_tipo']) === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div class="field">
+        <label>Valor descuento promo</label>
+        <input type="number" min="0" step="0.01" name="descuento_promo_valor" value="{{ old('descuento_promo_valor', $priceSettings['descuento_promo_valor']) }}" required>
+    </div>
+    <div class="field">
+        <label>Nombre promocion</label>
+        <input name="descuento_promo_nombre" value="{{ old('descuento_promo_nombre', $priceSettings['descuento_promo_nombre']) }}" maxlength="255">
+    </div>
+    <div class="field full">
+        <label>Descripcion promocion</label>
+        <textarea name="descuento_promo_descripcion" rows="3">{{ old('descuento_promo_descripcion', $priceSettings['descuento_promo_descripcion']) }}</textarea>
+    </div>
     <div class="field full"><button class="btn">Guardar configuracion</button></div>
 </form>
 @endsection

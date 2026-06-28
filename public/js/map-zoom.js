@@ -170,6 +170,76 @@ window.createImpactoMapZoom = function createImpactoMapZoom(options) {
     return map._impactoMapZoom;
 };
 
+window.ImpactoCommercialCalculator = {
+    money(value) {
+        return Math.round((Number(value) || 0) * 100) / 100;
+    },
+
+    discountUsd(priceUsd, discount = {}) {
+        if (!discount.activo) return 0;
+        const value = Math.max(0, Number(discount.valor) || 0);
+
+        return this.money(discount.tipo === 'porcentaje' ? priceUsd * value / 100 : value);
+    },
+
+    calculateCredit({ priceUsd, initialUsd, plazo, tipoCambio, inicialMinimaUsd, plazos }) {
+        const price = this.money(priceUsd);
+        const initial = this.money(initialUsd);
+        const months = Number(plazo);
+        const enabledTerms = (plazos || []).map(Number);
+        const minInitial = this.money(inicialMinimaUsd);
+        const exchange = Number(tipoCambio) || 0;
+        const errors = [];
+
+        if (initial < minInitial) errors.push('La inicial debe ser mayor o igual a la inicial minima.');
+        if (initial >= price) errors.push('La inicial debe ser menor al precio real.');
+        if (!months) errors.push('Selecciona un plazo.');
+        if (months && !enabledTerms.includes(months)) errors.push('El plazo seleccionado no esta habilitado.');
+
+        const saldoUsd = this.money(Math.max(0, price - initial));
+        const cuotaUsd = months ? this.money(saldoUsd / months) : 0;
+
+        return {
+            errors,
+            precioUsd: price,
+            precioBs: this.money(price * exchange),
+            inicialUsd: initial,
+            inicialBs: this.money(initial * exchange),
+            saldoUsd,
+            saldoBs: this.money(saldoUsd * exchange),
+            plazo: months,
+            cuotaUsd,
+            cuotaBs: this.money(cuotaUsd * exchange),
+            inicialMinimaUsd: minInitial,
+            inicialMinimaBs: this.money(minInitial * exchange),
+        };
+    },
+
+    calculateSemiContado({ priceUsd, tipoCambio, descuentoContado, descuentoPromo }) {
+        const price = this.money(priceUsd);
+        const exchange = Number(tipoCambio) || 0;
+        const contadoUsd = this.discountUsd(price, descuentoContado);
+        const promoUsd = this.discountUsd(price, descuentoPromo);
+        const totalUsd = this.money(contadoUsd + promoUsd);
+        const errors = totalUsd >= price ? ['Los descuentos no pueden ser mayores o iguales al precio real.'] : [];
+        const finalUsd = errors.length ? price : this.money(price - totalUsd);
+
+        return {
+            errors,
+            precioUsd: price,
+            precioBs: this.money(price * exchange),
+            descuentoContadoUsd: contadoUsd,
+            descuentoContadoBs: this.money(contadoUsd * exchange),
+            descuentoPromoUsd: promoUsd,
+            descuentoPromoBs: this.money(promoUsd * exchange),
+            totalDescuentoUsd: totalUsd,
+            totalDescuentoBs: this.money(totalUsd * exchange),
+            precioFinalUsd: finalUsd,
+            precioFinalBs: this.money(finalUsd * exchange),
+        };
+    },
+};
+
 window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
     const modal = options.modal || document.getElementById('lote-map-modal');
     const overlay = options.overlay || document.getElementById('lotModalOverlay');
@@ -204,6 +274,8 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         vender: modal.querySelector('[data-modal-link="vender"]'),
         editar: modal.querySelector('[data-modal-link="editar"]'),
     };
+    const calculatorButton = modal.querySelector('[data-modal-calculator]');
+    let currentLoteData = null;
 
     function write(field, value) {
         if (field) field.textContent = value || '';
@@ -244,6 +316,7 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         }
 
         Object.values(links).forEach((link) => setLink(link, '', false));
+        if (calculatorButton) calculatorButton.hidden = true;
 
         if (fields.message) {
             fields.message.hidden = false;
@@ -272,6 +345,7 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
     }
 
     function fillModal(data, point) {
+        currentLoteData = data;
         write(fields.title, `Lote ${data.label || point.dataset.label || ''}`);
         write(fields.urbanizacion, data.urbanizacion);
         write(fields.manzano, data.manzano);
@@ -291,8 +365,9 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         setLink(links.reservar, data.urls?.reservar, data.permisos?.reservar);
         setLink(links.vender, data.urls?.vender, data.permisos?.vender);
         setLink(links.editar, data.urls?.editar, data.permisos?.editar);
+        if (calculatorButton) calculatorButton.hidden = !data.permisos?.calculadora;
 
-        const hasAction = Boolean(data.permisos?.reservar || data.permisos?.vender || data.permisos?.editar);
+        const hasAction = Boolean(data.permisos?.reservar || data.permisos?.vender || data.permisos?.editar || data.permisos?.calculadora);
 
         if (fields.message) {
             fields.message.hidden = hasAction || data.estado === 'disponible';
@@ -312,6 +387,7 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
         Object.values(links).forEach((link) => {
             if (link) link.href = '#';
         });
+        currentLoteData = null;
     }
 
     async function open(point) {
@@ -333,6 +409,11 @@ window.createImpactoLotModal = function createImpactoLotModal(options = {}) {
     }
 
     closeButton?.addEventListener('click', close);
+    calculatorButton?.addEventListener('click', () => {
+        if (currentLoteData && typeof options.onCalculator === 'function') {
+            options.onCalculator(currentLoteData);
+        }
+    });
     overlay?.addEventListener('click', close);
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) {

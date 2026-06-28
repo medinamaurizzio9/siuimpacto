@@ -14,6 +14,18 @@ class CommercialSettingsService
     public const TIPO_CAMBIO_USD_BS = 'tipo_cambio_usd_bs';
     public const INCREMENTO_CREDITO_TIPO = 'incremento_credito_tipo';
     public const INCREMENTO_CREDITO_VALOR = 'incremento_credito_valor';
+    public const INICIAL_MINIMA_USD = 'inicial_minima_usd';
+    public const PLAZO_12_HABILITADO = 'plazo_12_habilitado';
+    public const PLAZO_24_HABILITADO = 'plazo_24_habilitado';
+    public const PLAZO_36_HABILITADO = 'plazo_36_habilitado';
+    public const DESCUENTO_CONTADO_ACTIVO = 'descuento_contado_activo';
+    public const DESCUENTO_CONTADO_TIPO = 'descuento_contado_tipo';
+    public const DESCUENTO_CONTADO_VALOR = 'descuento_contado_valor';
+    public const DESCUENTO_PROMO_ACTIVO = 'descuento_promo_activo';
+    public const DESCUENTO_PROMO_TIPO = 'descuento_promo_tipo';
+    public const DESCUENTO_PROMO_VALOR = 'descuento_promo_valor';
+    public const DESCUENTO_PROMO_NOMBRE = 'descuento_promo_nombre';
+    public const DESCUENTO_PROMO_DESCRIPCION = 'descuento_promo_descripcion';
 
     public function reservaDiasHabilesAsesor(?int $urbanizacionId = null): int
     {
@@ -51,6 +63,7 @@ class CommercialSettingsService
             'tipo_cambio_usd_bs' => $this->tipoCambioUsdBs($urbanizacionId),
             'incremento_credito_tipo' => $this->incrementoCreditoTipo($urbanizacionId),
             'incremento_credito_valor' => $this->incrementoCreditoValor($urbanizacionId),
+            ...$this->calculatorSettings($urbanizacionId),
         ];
     }
 
@@ -76,9 +89,68 @@ class CommercialSettingsService
             'tipo_cambio_usd_bs' => max(0, (float) $data[self::TIPO_CAMBIO_USD_BS]),
             'incremento_credito_tipo' => $data[self::INCREMENTO_CREDITO_TIPO],
             'incremento_credito_valor' => max(0, (float) $data[self::INCREMENTO_CREDITO_VALOR]),
+            'inicial_minima_usd' => max(0, (float) ($data[self::INICIAL_MINIMA_USD] ?? $setting->inicial_minima_usd ?? 0)),
+            'plazo_12_habilitado' => (bool) ($data[self::PLAZO_12_HABILITADO] ?? $setting->plazo_12_habilitado ?? true),
+            'plazo_24_habilitado' => (bool) ($data[self::PLAZO_24_HABILITADO] ?? $setting->plazo_24_habilitado ?? true),
+            'plazo_36_habilitado' => (bool) ($data[self::PLAZO_36_HABILITADO] ?? $setting->plazo_36_habilitado ?? true),
+            'descuento_contado_activo' => (bool) ($data[self::DESCUENTO_CONTADO_ACTIVO] ?? $setting->descuento_contado_activo ?? false),
+            'descuento_contado_tipo' => $this->discountType($data[self::DESCUENTO_CONTADO_TIPO] ?? $setting->descuento_contado_tipo ?? 'monto'),
+            'descuento_contado_valor' => max(0, (float) ($data[self::DESCUENTO_CONTADO_VALOR] ?? $setting->descuento_contado_valor ?? 0)),
+            'descuento_promo_activo' => (bool) ($data[self::DESCUENTO_PROMO_ACTIVO] ?? $setting->descuento_promo_activo ?? false),
+            'descuento_promo_tipo' => $this->discountType($data[self::DESCUENTO_PROMO_TIPO] ?? $setting->descuento_promo_tipo ?? 'monto'),
+            'descuento_promo_valor' => max(0, (float) ($data[self::DESCUENTO_PROMO_VALOR] ?? $setting->descuento_promo_valor ?? 0)),
+            'descuento_promo_nombre' => $data[self::DESCUENTO_PROMO_NOMBRE] ?? null,
+            'descuento_promo_descripcion' => $data[self::DESCUENTO_PROMO_DESCRIPCION] ?? null,
         ]);
 
         return $setting;
+    }
+
+    public function calculatorSettings(?int $urbanizacionId = null): array
+    {
+        $settings = $this->settings($urbanizacionId);
+
+        return [
+            'inicial_minima_usd' => $settings['inicial_minima_usd'],
+            'plazo_12_habilitado' => $settings['plazo_12_habilitado'],
+            'plazo_24_habilitado' => $settings['plazo_24_habilitado'],
+            'plazo_36_habilitado' => $settings['plazo_36_habilitado'],
+            'descuento_contado_activo' => $settings['descuento_contado_activo'],
+            'descuento_contado_tipo' => $settings['descuento_contado_tipo'],
+            'descuento_contado_valor' => $settings['descuento_contado_valor'],
+            'descuento_promo_activo' => $settings['descuento_promo_activo'],
+            'descuento_promo_tipo' => $settings['descuento_promo_tipo'],
+            'descuento_promo_valor' => $settings['descuento_promo_valor'],
+            'descuento_promo_nombre' => $settings['descuento_promo_nombre'],
+            'descuento_promo_descripcion' => $settings['descuento_promo_descripcion'],
+        ];
+    }
+
+    public function calculatorPayload(?int $urbanizacionId = null): array
+    {
+        $settings = $this->settings($urbanizacionId);
+
+        return [
+            'tipoCambio' => $settings['tipo_cambio_usd_bs'],
+            'inicialMinimaUsd' => $settings['inicial_minima_usd'],
+            'plazos' => collect([
+                12 => $settings['plazo_12_habilitado'],
+                24 => $settings['plazo_24_habilitado'],
+                36 => $settings['plazo_36_habilitado'],
+            ])->filter()->keys()->values()->all(),
+            'descuentoContado' => [
+                'activo' => $settings['descuento_contado_activo'],
+                'tipo' => $settings['descuento_contado_tipo'],
+                'valor' => $settings['descuento_contado_valor'],
+            ],
+            'descuentoPromo' => [
+                'activo' => $settings['descuento_promo_activo'],
+                'tipo' => $settings['descuento_promo_tipo'],
+                'valor' => $settings['descuento_promo_valor'],
+                'nombre' => $settings['descuento_promo_nombre'],
+                'descripcion' => $settings['descuento_promo_descripcion'],
+            ],
+        ];
     }
 
     public function addBusinessDays(Carbon $date, int $days): Carbon
@@ -111,6 +183,18 @@ class CommercialSettingsService
             'tipo_cambio_usd_bs' => max(0, (float) $setting->tipo_cambio_usd_bs),
             'incremento_credito_tipo' => in_array($setting->incremento_credito_tipo, ['monto', 'porcentaje'], true) ? $setting->incremento_credito_tipo : 'monto',
             'incremento_credito_valor' => max(0, (float) $setting->incremento_credito_valor),
+            'inicial_minima_usd' => max(0, (float) ($setting->inicial_minima_usd ?? 0)),
+            'plazo_12_habilitado' => (bool) ($setting->plazo_12_habilitado ?? true),
+            'plazo_24_habilitado' => (bool) ($setting->plazo_24_habilitado ?? true),
+            'plazo_36_habilitado' => (bool) ($setting->plazo_36_habilitado ?? true),
+            'descuento_contado_activo' => (bool) ($setting->descuento_contado_activo ?? false),
+            'descuento_contado_tipo' => $this->discountType($setting->descuento_contado_tipo ?? 'monto'),
+            'descuento_contado_valor' => max(0, (float) ($setting->descuento_contado_valor ?? 0)),
+            'descuento_promo_activo' => (bool) ($setting->descuento_promo_activo ?? false),
+            'descuento_promo_tipo' => $this->discountType($setting->descuento_promo_tipo ?? 'monto'),
+            'descuento_promo_valor' => max(0, (float) ($setting->descuento_promo_valor ?? 0)),
+            'descuento_promo_nombre' => $setting->descuento_promo_nombre,
+            'descuento_promo_descripcion' => $setting->descuento_promo_descripcion,
         ];
     }
 
@@ -135,6 +219,23 @@ class CommercialSettingsService
             'tipo_cambio_usd_bs' => max(0, (float) ($global[self::TIPO_CAMBIO_USD_BS] ?? 6.96)),
             'incremento_credito_tipo' => in_array($tipo, ['monto', 'porcentaje'], true) ? $tipo : 'monto',
             'incremento_credito_valor' => max(0, (float) ($global[self::INCREMENTO_CREDITO_VALOR] ?? 0)),
+            'inicial_minima_usd' => 0,
+            'plazo_12_habilitado' => true,
+            'plazo_24_habilitado' => true,
+            'plazo_36_habilitado' => true,
+            'descuento_contado_activo' => false,
+            'descuento_contado_tipo' => 'monto',
+            'descuento_contado_valor' => 0,
+            'descuento_promo_activo' => false,
+            'descuento_promo_tipo' => 'monto',
+            'descuento_promo_valor' => 0,
+            'descuento_promo_nombre' => null,
+            'descuento_promo_descripcion' => null,
         ];
+    }
+
+    private function discountType(?string $tipo): string
+    {
+        return in_array($tipo, ['monto', 'porcentaje'], true) ? $tipo : 'monto';
     }
 }

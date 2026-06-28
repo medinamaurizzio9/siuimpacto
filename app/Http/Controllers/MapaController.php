@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Urbanizacion;
 use App\Models\Lote;
+use App\Services\CommercialSettingsService;
 use App\Services\GeoPlanCalibrationService;
 use App\Services\LotPricingService;
 use App\Support\UrbanizacionContext;
@@ -14,7 +15,7 @@ use Illuminate\View\View;
 
 class MapaController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request, CommercialSettingsService $settings): View
     {
         $urbanizaciones = UrbanizacionContext::accessibleUrbanizaciones($request->user());
 
@@ -35,7 +36,11 @@ class MapaController extends Controller
         $busqueda = $request->query('lote');
         $sinUbicacion = $request->boolean('sin_ubicacion');
 
-        return view('mapa.index', compact('urbanizaciones', 'urbanizacion', 'estado', 'manzanoId', 'busqueda', 'sinUbicacion'));
+        $commercialConfig = $urbanizacion
+            ? $settings->calculatorPayload($urbanizacion->id)
+            : $settings->calculatorPayload(null);
+
+        return view('mapa.index', compact('urbanizaciones', 'urbanizacion', 'estado', 'manzanoId', 'busqueda', 'sinUbicacion', 'commercialConfig'));
     }
 
     public function updateLotePosition(Request $request, Lote $lote): JsonResponse
@@ -70,6 +75,9 @@ class MapaController extends Controller
         $canReservar = $lote->estado === 'disponible' && ($user?->can('crear reservas') ?? false);
         $canVender = ! $isVendedor && ! $isSupervisor && ($user?->can('crear ventas') ?? false) && in_array($lote->estado, ['disponible', 'reservado'], true);
         $canEditar = ! $isVendedor && ! $isSupervisor && ($user?->can('editar lotes') ?? false);
+        $canCalculadora = ($user?->can('crear reservas') ?? false)
+            || ($user?->can('crear ventas') ?? false)
+            || ($user?->can('editar lotes') ?? false);
 
         return response()->json([
             'urbanizacion' => $lote->manzano->urbanizacion->nombre,
@@ -79,6 +87,9 @@ class MapaController extends Controller
             'superficie' => number_format((float) $lote->superficie, 2).' m2',
             'precio' => $pricingService->formatUsd($pricePayload['credit_usd']),
             'precio_bs' => $pricingService->formatBs($pricePayload['credit_bs']),
+            'precio_real_usd' => $pricePayload['credit_usd'],
+            'precio_real_bs' => $pricePayload['credit_bs'],
+            'tipo_cambio_usd_bs' => $pricePayload['tipo_cambio_usd_bs'],
             'cuota_inicial' => $pricingService->formatUsd($pricePayload['initial_credit_usd']),
             'cuota_inicial_bs' => $pricingService->formatBs($pricePayload['initial_credit_bs']),
             'estado' => $lote->estado,
@@ -92,6 +103,7 @@ class MapaController extends Controller
                 'reservar' => $canReservar,
                 'vender' => $canVender,
                 'editar' => $canEditar,
+                'calculadora' => $canCalculadora,
             ],
         ]);
     }

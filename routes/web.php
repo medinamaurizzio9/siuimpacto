@@ -121,6 +121,12 @@ Route::middleware('auth')->group(function (): void {
             Route::get('/exportaciones', [ReportController::class, 'exportaciones'])->name('exportaciones');
             Route::get('/{reporte}/csv', [ReportController::class, 'csv'])->middleware('can:exportar reportes')->name('csv');
         });
+
+        Route::prefix('administracion')->name('admin.')->group(function (): void {
+            Route::get('/configuracion-comercial', [CommercialSettingController::class, 'edit'])->name('configuracion');
+            Route::put('/configuracion-comercial', [CommercialSettingController::class, 'update'])->name('configuracion.update');
+        });
+
         Route::middleware('can:administrar usuarios')->prefix('administracion')->name('admin.')->group(function (): void {
     Route::get('/usuarios', [UsuarioController::class, 'index'])->name('usuarios');
     Route::get('/usuarios/create', [UsuarioController::class, 'create'])->name('usuarios.create');
@@ -145,9 +151,6 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/configuracion-general', [SystemSettingController::class, 'edit'])->name('configuracion-general');
     Route::put('/configuracion-general', [SystemSettingController::class, 'update'])->name('configuracion-general.update');
-
-    Route::get('/configuracion-comercial', [CommercialSettingController::class, 'edit'])->name('configuracion');
-    Route::put('/configuracion-comercial', [CommercialSettingController::class, 'update'])->name('configuracion.update');
 
     Route::get('/auditoria', function () {
         $audits = \Illuminate\Support\Facades\DB::table('audit_logs')
